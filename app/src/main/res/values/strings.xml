@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TVAnimeApp</string>
+    <string name="label_home">Inicio</string>
+    <string name="label_favorites">Favoritos</string>
+    <string name="label_history">Continuar viendo</string>
+    <string name="label_search">Buscar</string>
+    <string name="label_anime">Anime</string>
+    <string name="label_movie">Películas</string>
+    <string name="label_series">Series</string>
+    <string name="label_play">Reproducir</string>
+    <string name="label_resume">Continuar</string>
+    <string name="label_favorite_off">Agregar a favoritos</string>
+    <string name="label_favorite_on">Quitar de favoritos</string>
+    <string name="error_load_catalog">No se pudo cargar el catálogo. Verifica tu fuente.</string>
+    <string name="error_no_streams">No se encontraron enlaces en esta fuente.</string>
+    <string name="error_playback">Error al reproducir el video.</string>
+</resources>

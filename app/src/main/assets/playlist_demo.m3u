@@ -1,0 +1,9 @@
+#EXTM3U
+#EXTINF:-1 group-title="Anime",[Demo] Naruto Shippuden
+https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
+#EXTINF:-1 group-title="Anime",[Demo] One Piece
+https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4
+#EXTINF:-1 group-title="Películas",[Demo] Película A
+https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4
+#EXTINF:-1 group-title="Películas",[Demo] Película B
+https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4
