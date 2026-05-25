@@ -1,5 +1,24 @@
 # Plan de Trabajo — TVAnimeApp
 
+## Objetivo rector
+
+La app debe girar en torno a este flujo principal:
+
+1. El usuario ingresa una URL de una pagina publica.
+2. La app inspecciona el contenido remoto.
+3. Detecta enlaces de video y audio potencialmente reproducibles.
+4. Presenta los resultados en interfaz Android TV.
+5. Reproduce el recurso seleccionado dentro de la app.
+
+## Brecha actual
+
+La implementacion existente esta centrada sobre todo en listas M3U y catalogo local/remoto sincronizado. Eso deja ya resuelta una base importante de UI TV, almacenamiento y reproduccion, pero todavia faltan piezas para el objetivo real:
+
+1. Entrada manual de URL de pagina.
+2. Capa de extraccion/deteccion de medios desde HTML publico.
+3. Modelo de datos enfocado en enlaces detectados, no solo items de playlist.
+4. Flujo principal de analisis -> resultados -> reproduccion.
+
 ## Indice de carpetas real
 
 ```
@@ -150,7 +169,7 @@ cd "C:\Users\informatica\AndroidStudioProjects\TVAnimeApp"
 ## Pendiente Inmediato
 
 1. [Compilar APK] Verificar en Android Studio y corregir errores de build si existieran
-2. [WorkManager] Llamar `enqueue` del worker desde el onCreate de TVAnimeApp.kt o desde Settings
-3. [Ajustes] Pantalla de preferencias: URL M3U, intervalo de sync, habilitar/deshabilitar favoritos
-4. [CleartextTraffic] Remover `usesCleartextTraffic=true` cuando uses HTTPS exclusivamente
-5. [Subtítulos] Cargar subtítulos .vtt desde el campo `subtitleUrl` en DetailScreen
+2. [URL de entrada] Crear flujo para que el usuario ingrese una pagina publica a analizar
+3. [Extraccion] Diseñar una capa de deteccion de enlaces multimedia desde HTML publico
+4. [Flujo principal] Reordenar Home/Detail para priorizar analizar URL y mostrar resultados
+5. [Compatibilidad] Definir que formatos y hosts publicos se soportaran primero

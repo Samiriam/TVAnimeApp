@@ -1,6 +1,21 @@
 # TVAnimeApp — Proyecto Android TV
 
-App de catálogo de video para Android TV desarrollada en **Kotlin + Jetpack Compose + Media3**.
+App para Android TV orientada a **detectar, captar y reproducir enlaces públicos de video y audio** a partir de la URL de una pagina ingresada por el usuario, desarrollada en **Kotlin + Jetpack Compose + Media3**.
+
+## Objetivo del producto
+
+El centro de la app ya no debe ser solo un catálogo o una playlist M3U fija.
+
+La dirección del proyecto es:
+
+1. Recibir una URL pública ingresada por el usuario.
+2. Analizar esa página para localizar recursos multimedia reproducibles.
+3. Presentar esos enlaces encontrados de forma clara en TV.
+4. Reproducir video o audio directamente dentro de la app.
+
+## Estado actual
+
+La base actual del repositorio ya resuelve la parte de reproducción en Android TV, pero hoy está más enfocada en **importar listas M3U** y mostrarlas como catálogo. Ese flujo servirá como base técnica, pero deberá evolucionar para que la extracción desde páginas públicas sea el caso principal de uso.
 
 ## Índice de carpetas
 
