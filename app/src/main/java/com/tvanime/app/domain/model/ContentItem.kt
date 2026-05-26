@@ -11,3 +11,11 @@ data class ContentItem(
     val posterUrl: String,
     val backdropUrl: String,
     val mediaType: MediaType,
+    val genres: List<String> = emptyList(),
+    val year: Int = 0,
+    val communityRating: Float = 0f,
+    val videoUrl: String = "",
+    val subtitleUrl: String? = null,
+    val sourceName: String = "",
+    val syncedAt: Long = 0L
+) : Parcelable

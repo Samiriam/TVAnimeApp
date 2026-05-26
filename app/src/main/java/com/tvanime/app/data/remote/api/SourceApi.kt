@@ -1,5 +1,6 @@
 package com.tvanime.app.data.remote.api
 
+import okhttp3.ResponseBody
 import retrofit2.http.GET
 import retrofit2.http.Url
 
@@ -12,8 +13,8 @@ import retrofit2.http.Url
 interface SourceApi {
 
     @GET
-    suspend fun fetchCatalog(@Url url: String): String
+    suspend fun fetchCatalog(@Url url: String): ResponseBody
 
     @GET
-    suspend fun fetchStreamUrl(@Url url: String): String
+    suspend fun fetchStreamUrl(@Url url: String): ResponseBody
 }

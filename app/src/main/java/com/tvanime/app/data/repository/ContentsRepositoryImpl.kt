@@ -1,8 +1,12 @@
 package com.tvanime.app.data.repository
 
 import com.tvanime.app.data.local.dao.ContentDao
+import com.tvanime.app.data.local.dao.FavoriteDao
+import com.tvanime.app.data.local.dao.HistoryDao
 import com.tvanime.app.data.remote.api.SourceApi
 import com.tvanime.app.data.remote.dto.RemoteContentItem
+import com.tvanime.app.data.local.entity.toDomain
+import com.tvanime.app.data.local.entity.toEntity
 import com.tvanime.app.domain.model.ContentItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -13,7 +17,9 @@ import kotlinx.coroutines.flow.map
  */
 class ContentsRepositoryImpl(
     private val api: SourceApi,
-    private val contentDao: ContentDao
+    private val contentDao: ContentDao,
+    private val historyDao: HistoryDao,
+    private val favoriteDao: FavoriteDao
 ) : ContentsRepository {
 
     override fun observeCatalog(): Flow<List<ContentItem>> =
@@ -31,4 +37,18 @@ class ContentsRepositoryImpl(
 
     override fun observeByType(type: String): Flow<List<ContentItem>> =
         contentDao.getByType(type).map { list -> list.map { it.toDomain() } }
+
+    override fun observeHistory() = historyDao.observeAll()
+
+    override fun observeFavorites() = favoriteDao.observeAll()
+
+    override suspend fun addFavorite(id: String) {
+        favoriteDao.add(com.tvanime.app.data.local.entity.FavoriteEntity(id))
+    }
+
+    override suspend fun removeFavorite(id: String) {
+        favoriteDao.remove(com.tvanime.app.data.local.entity.FavoriteEntity(id))
+    }
+
+    override fun isFavorite(id: String) = favoriteDao.isFavorite(id)
 }

@@ -1,5 +1,6 @@
 package com.tvanime.app.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -29,7 +30,7 @@ class DetailViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase
 ) : ViewModel() {
 
-    private val contentId: String = checkNotNull(savedStateHandle["contentId"])
+    private val contentId: String = Uri.decode(checkNotNull(savedStateHandle.get<String>("contentId")))
 
     private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()

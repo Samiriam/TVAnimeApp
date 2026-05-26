@@ -1,6 +1,8 @@
 package com.tvanime.app.data.local
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.tvanime.app.data.local.dao.ContentDao
 import com.tvanime.app.data.local.dao.FavoriteDao
@@ -21,5 +23,18 @@ abstract class TVAnimeDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "tv_anime.db"
+
+        @Volatile
+        private var INSTANCE: TVAnimeDatabase? = null
+
+        fun getInstance(context: Context): TVAnimeDatabase {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    TVAnimeDatabase::class.java,
+                    DATABASE_NAME
+                ).build().also { INSTANCE = it }
+            }
+        }
     }
 }

@@ -7,6 +7,9 @@ import com.tvanime.app.data.local.dao.HistoryDao
 import com.tvanime.app.data.local.database.TVAnimeDatabase
 import com.tvanime.app.data.remote.api.SourceApi
 import com.tvanime.app.data.remote.interceptor.UserAgentInterceptor
+import com.tvanime.app.data.repository.ContentsRepositoryImpl
+import com.tvanime.app.data.repository.FavoritesRepositoryImpl
+import com.tvanime.app.data.repository.HistoryRepositoryImpl
 import com.tvanime.app.data.repository.ContentsRepository
 import com.tvanime.app.domain.usecase.GetCatalogUseCase
 import com.tvanime.app.domain.usecase.GetDetailUseCase
@@ -18,10 +21,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -46,9 +45,6 @@ object AppModule {
     fun provideRetrofit(client: OkHttpClient): Retrofit = Retrofit.Builder()
         .baseUrl("https://placeholder.api/")
         .client(client)
-        .addConverterFactory(
-            Json.asConverterFactory("application/json".toMediaType())
-        )
         .build()
 
     @Provides
@@ -77,9 +73,11 @@ object AppModule {
     @Singleton
     fun provideContentRepository(
         api: SourceApi,
-        contentDao: ContentDao
+        contentDao: ContentDao,
+        historyDao: HistoryDao,
+        favoriteDao: FavoriteDao
     ): ContentsRepository =
-        ContentsRepositoryImpl(api = api, contentDao = contentDao)
+        ContentsRepositoryImpl(api = api, contentDao = contentDao, historyDao = historyDao, favoriteDao = favoriteDao)
 
     @Provides
     @Singleton

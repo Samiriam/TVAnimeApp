@@ -1,5 +1,6 @@
 package com.tvanime.app.ui.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -9,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tvanime.app.ui.screens.HomeScreen
 import com.tvanime.app.ui.screens.DetailScreen
 import com.tvanime.app.ui.screens.PlayerScreen
 import com.tvanime.app.ui.viewmodel.DetailViewModel
@@ -36,10 +38,10 @@ fun TVAnimeNavHost(
             val vm: HomeViewModel = hiltViewModel()
             val uiState by vm.uiState.collectAsState()
 
-            com.tvanime.app.ui.screens.HomeScreen(
+            HomeScreen(
                 catalog = uiState.catalog,
                 onContentSelected = { item: ContentItem ->
-                    navController.navigate("detail/${item.id}")
+                    navController.navigate("detail/${Uri.encode(item.id)}")
                 }
             )
         }
@@ -48,7 +50,7 @@ fun TVAnimeNavHost(
         composable(
             route = "detail/{contentId}",
             arguments = listOf(navArgument("contentId") { type = NavType.StringType })
-        ) { backStackEntry ->
+        ) {
             val vm: DetailViewModel = hiltViewModel()
             val uiState by vm.uiState.collectAsState()
 
@@ -61,8 +63,9 @@ fun TVAnimeNavHost(
                 onPlayClick = {
                     val videoUrl = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)
                         ?.item?.videoUrl
-                        ?: return@DetailScreen
-                    navController.navigate("player/$videoUrl")
+                    if (!videoUrl.isNullOrBlank()) {
+                        navController.navigate("player/${Uri.encode(videoUrl)}")
+                    }
                 },
                 onToggleFavorite = {
                     val currentFav = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)
@@ -75,7 +78,7 @@ fun TVAnimeNavHost(
 
         // ── PLAYER ────────────────────────────────────────────────────────
         composable("player/{videoUrl}") { backStackEntry ->
-            val videoUrl = backStackEntry.arguments?.getString("videoUrl").orEmpty()
+            val videoUrl = Uri.decode(backStackEntry.arguments?.getString("videoUrl").orEmpty())
             BackHandler { navController.popBackStack() }
             PlayerScreen(videoUrl = videoUrl)
         }

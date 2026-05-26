@@ -1,13 +1,25 @@
 package com.tvanime.app.ui.screens
 
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcher
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -15,7 +27,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -26,7 +37,78 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.tvanime.app.domain.model.ContentItem
+
+@Composable
+fun HomeScreen(
+    catalog: List<ContentItem>,
+    onContentSelected: (ContentItem) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        Text(
+            text = "TVAnime",
+            style = MaterialTheme.typography.headlineLarge,
+            color = Color.White
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        if (catalog.isEmpty()) {
+            Text(
+                text = "No hay contenido cargado todavía.",
+                color = Color.White.copy(alpha = 0.7f)
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                items(catalog) { item ->
+                    Card(
+                        onClick = { onContentSelected(item) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF171725))
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(text = item.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(text = item.description, color = Color.White.copy(alpha = 0.75f), maxLines = 2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailScreen(
+    contentItem: ContentItem?,
+    isFavorite: Boolean,
+    onPlayClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onBack: () -> Unit
+) {
+    val item = contentItem
+    if (item == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(text = item.title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(text = item.description, color = Color.White.copy(alpha = 0.8f))
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FilledTonalButton(onClick = onPlayClick) { Text("Reproducir") }
+            OutlinedButton(onClick = onToggleFavorite) { Text(if (isFavorite) "Quitar favorito" else "Favorito") }
+        }
+    }
+}
 
 /**
  * Pantalla de reproducción de video con Media3 / ExoPlayer.
