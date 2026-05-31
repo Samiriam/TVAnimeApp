@@ -2,7 +2,7 @@ package com.tvanime.app.ui.screens
 
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalOnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,29 +29,44 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.tvanime.app.data.settings.PlaylistSource
 import com.tvanime.app.domain.model.ContentItem
+import com.tvanime.app.ui.viewmodel.SettingsUiState
 
 @Composable
 fun HomeScreen(
     catalog: List<ContentItem>,
+    onOpenSettings: () -> Unit,
     onContentSelected: (ContentItem) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        Text(
-            text = "TVAnime",
-            style = MaterialTheme.typography.headlineLarge,
-            color = Color.White
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "TVAnime",
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White
+            )
+            OutlinedButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = null)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Ajustes")
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         if (catalog.isEmpty()) {
             Text(
@@ -74,6 +89,89 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    uiState: SettingsUiState,
+    onBack: () -> Unit,
+    onSelectDemo: () -> Unit,
+    onSelectRemoteUrl: () -> Unit,
+    onRemoteUrlChanged: (String) -> Unit,
+    onSave: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Origen de playlist M3U", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Selecciona una fuente para sincronizar el catalogo y generar el APK de prueba con contenido disponible.",
+            color = Color.White.copy(alpha = 0.8f)
+        )
+        Spacer(Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilterChip(
+                selected = uiState.selectedSource == PlaylistSource.DEMO,
+                onClick = onSelectDemo,
+                label = { Text("Demo local") }
+            )
+            FilterChip(
+                selected = uiState.selectedSource == PlaylistSource.REMOTE_URL,
+                onClick = onSelectRemoteUrl,
+                label = { Text("URL remota") }
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = uiState.remoteUrl,
+            onValueChange = onRemoteUrlChanged,
+            enabled = uiState.selectedSource == PlaylistSource.REMOTE_URL,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("URL M3U") },
+            placeholder = { Text("https://example.com/playlist.m3u") },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true,
+            supportingText = {
+                Text(
+                    if (uiState.selectedSource == PlaylistSource.DEMO) {
+                        "La demo usa `app/src/main/assets/playlist_demo.m3u`."
+                    } else {
+                        "Se sincroniza ahora y luego cada 4 horas con WorkManager."
+                    }
+                )
+            }
+        )
+
+        uiState.error?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(text = it, color = MaterialTheme.colorScheme.error)
+        }
+
+        uiState.message?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(text = it, color = Color(0xFF7CFC98))
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        FilledTonalButton(onClick = onSave, enabled = !uiState.isSaving) {
+            if (uiState.isSaving) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text("Guardar y sincronizar")
         }
     }
 }
@@ -125,7 +223,7 @@ fun PlayerScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val onBackPressed = LocalOnBackPressedDispatcher.current
+    val onBackPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     var showControls by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(false) }
@@ -235,8 +333,8 @@ fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = {
-                            onBackPressed.onBackPressed()
+                            onClick = {
+                            onBackPressedDispatcher?.onBackPressed()
                         }
                     ) {
                         Icon(
@@ -292,12 +390,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(64.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Replay10,
-                                contentDescription = "Retroceder 10s",
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
-                            )
+                            Text(text = "-10s", color = Color.White)
                         }
 
                         // Play / Pausa
@@ -310,11 +403,9 @@ fun PlayerScreen(
                                 containerColor = Color(0xFF7C3AED)
                             )
                         ) {
-                            Icon(
-                                imageVector = if (exoPlayer.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (exoPlayer.isPlaying) "Pausar" else "Reproducir",
-                                tint = Color.White,
-                                modifier = Modifier.size(44.dp)
+                            Text(
+                                text = if (exoPlayer.isPlaying) "Pausa" else "Play",
+                                color = Color.White
                             )
                         }
 
@@ -325,12 +416,7 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.size(64.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Forward10,
-                                contentDescription = "Avanzar 10s",
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
-                            )
+                            Text(text = "+10s", color = Color.White)
                         }
                     }
                 }

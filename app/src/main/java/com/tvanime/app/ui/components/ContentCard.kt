@@ -1,16 +1,15 @@
 package com.tvanime.app.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Card
-import androidx.tv.material3.CardDefaults
-import androidx.tv.material3.MaterialTheme
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import coil.compose.AsyncImage
 import com.tvanime.app.domain.model.ContentItem
 
@@ -26,7 +25,7 @@ fun ContentCard(
             .width(140.dp)
             .height(200.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier.fillMaxSize()) {
             AsyncImage(
@@ -72,7 +71,7 @@ fun ContentRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(count = items.size) { idx ->
-                ContentCard(item = items[idx]) { onItemClick(items[idx]) }
+                ContentCard(item = items[idx], onClick = { onItemClick(items[idx]) })
             }
         }
     }

@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.tvanime.app.data.parser.M3uPlaylistParser
 import com.tvanime.app.data.repository.ContentsRepository
 import com.tvanime.app.data.remote.dto.RemoteContentItem
+import com.tvanime.app.data.settings.PlaylistSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -28,15 +29,34 @@ class ContentSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
+        const val KEY_SOURCE = "key_source"
         const val KEY_M3U_URL = "key_m3u_url"
+        const val KEY_ASSET_NAME = "key_asset_name"
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val source = inputData.getString(KEY_SOURCE)
+            ?.let { runCatching { PlaylistSource.valueOf(it) }.getOrNull() }
+            ?: PlaylistSource.DEMO
         val m3uUrl = inputData.getString(KEY_M3U_URL).orEmpty()
-        if (m3uUrl.isBlank()) return@withContext Result.failure()
+        val assetName = inputData.getString(KEY_ASSET_NAME).orEmpty()
 
         return@withContext runCatching {
-            val items = parser.parseFromUrl(m3uUrl)
+            val items = when (source) {
+                PlaylistSource.DEMO -> {
+                    if (assetName.isBlank()) return@runCatching Result.failure()
+                    val assetContent = applicationContext.assets.open(assetName)
+                        .bufferedReader()
+                        .use { it.readText() }
+                    parser.parseAsset(assetContent)
+                }
+
+                PlaylistSource.REMOTE_URL -> {
+                    if (m3uUrl.isBlank()) return@runCatching Result.failure()
+                    parser.parseFromUrl(m3uUrl)
+                }
+            }
+
             val remoteItems = items.map { playlistItem ->
                 RemoteContentItem(
                     id = playlistItem.url,           // URL como id único

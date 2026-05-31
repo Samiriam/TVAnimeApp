@@ -1,8 +1,7 @@
 package com.tvanime.app.player
 
 import android.content.Context
-import androidx.media3.common.Tracks
-import androidx.media3.ui.DefaultTrackSelector
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
 /**
  * Wrapper de configuración para Media3 / ExoPlayer.

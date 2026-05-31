@@ -13,8 +13,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.screens.HomeScreen
 import com.tvanime.app.ui.screens.DetailScreen
 import com.tvanime.app.ui.screens.PlayerScreen
+import com.tvanime.app.ui.screens.SettingsScreen
 import com.tvanime.app.ui.viewmodel.DetailViewModel
 import com.tvanime.app.ui.viewmodel.HomeViewModel
+import com.tvanime.app.ui.viewmodel.SettingsViewModel
 import androidx.activity.compose.BackHandler
 import com.tvanime.app.domain.model.ContentItem
 
@@ -40,9 +42,26 @@ fun TVAnimeNavHost(
 
             HomeScreen(
                 catalog = uiState.catalog,
+                onOpenSettings = { navController.navigate("settings") },
                 onContentSelected = { item: ContentItem ->
                     navController.navigate("detail/${Uri.encode(item.id)}")
                 }
+            )
+        }
+
+        composable("settings") {
+            val vm: SettingsViewModel = hiltViewModel()
+            val uiState by vm.uiState.collectAsState()
+
+            BackHandler { navController.popBackStack() }
+
+            SettingsScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onSelectDemo = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
+                onSelectRemoteUrl = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
+                onRemoteUrlChanged = vm::updateRemoteUrl,
+                onSave = vm::save
             )
         }
 

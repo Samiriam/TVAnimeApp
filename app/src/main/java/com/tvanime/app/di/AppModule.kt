@@ -1,10 +1,12 @@
 package com.tvanime.app.di
 
 import android.content.Context
+import androidx.work.WorkManager
 import com.tvanime.app.data.local.dao.ContentDao
 import com.tvanime.app.data.local.dao.FavoriteDao
 import com.tvanime.app.data.local.dao.HistoryDao
-import com.tvanime.app.data.local.database.TVAnimeDatabase
+import com.tvanime.app.data.local.TVAnimeDatabase
+import com.tvanime.app.data.parser.M3uPlaylistParser
 import com.tvanime.app.data.remote.api.SourceApi
 import com.tvanime.app.data.remote.interceptor.UserAgentInterceptor
 import com.tvanime.app.data.repository.ContentsRepositoryImpl
@@ -51,6 +53,16 @@ object AppModule {
     @Singleton
     fun provideSourceApi(retrofit: Retrofit): SourceApi =
         retrofit.create(SourceApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideM3uPlaylistParser(client: OkHttpClient): M3uPlaylistParser =
+        M3uPlaylistParser(client)
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(@ApplicationContext context: Context): WorkManager =
+        WorkManager.getInstance(context)
 
     @Provides
     @Singleton
