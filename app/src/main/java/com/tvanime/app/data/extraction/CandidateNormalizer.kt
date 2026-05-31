@@ -153,11 +153,38 @@ class CandidateNormalizer @Inject constructor(
             "mstile",
             "sprite",
             "logo",
-            "banner"
+            "banner",
+            "doubleclick",
+            "ampproject",
+            "gstatic",
+            "linkrit",
+            "bigbuckbunny",
+            "test-videos",
+            "sample-video",
+            "wp-content/plugins",
+            "wp-includes",
+            "recaptcha",
+            "hcaptcha",
+            "adsbygoogle",
+            "adservice",
+            "tracking",
+            "telemetry",
+            "sentry.io",
+            "hotjar",
+            "mixpanel",
+            "segment.io",
+            "intercom",
+            "crisp.chat",
+            "tawk.to",
+            "zendesk",
+            "livechat",
+            "chatbot"
         )
         private val ASSET_EXTENSIONS = listOf(
             ".ico", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif",
-            ".css", ".js", ".json", ".xml", ".woff", ".woff2", ".ttf", ".map"
+            ".css", ".js", ".json", ".xml", ".woff", ".woff2", ".ttf", ".map",
+            ".eot", ".otf", ".pdf", ".zip", ".rar", ".7z", ".tar", ".gz",
+            ".exe", ".dmg", ".apk", ".deb", ".rpm", ".msi"
         )
     }
 }

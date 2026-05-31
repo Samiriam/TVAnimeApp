@@ -39,7 +39,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.tvanime.app.data.settings.PlaylistSource
@@ -116,7 +118,7 @@ fun ExtractMediaScreen(
     onBack: () -> Unit,
     onUrlChanged: (String) -> Unit,
     onExtract: () -> Unit,
-    onPlayCandidate: (String) -> Unit
+    onPlayCandidate: (String, Map<String, String>) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -186,7 +188,7 @@ fun ExtractMediaScreen(
             val visibleCandidates = if (playableCandidates.isNotEmpty()) playableCandidates else fallbackCandidates
 
             Text(
-                text = if (playableCandidates.isNotEmpty()) "Listo para reproducir" else "Detectado, pero requiere resolver",
+                text = if (playableCandidates.isNotEmpty()) "Listo para reproducir (${playableCandidates.size})" else "Detectado, pero requiere resolver",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White
             )
@@ -194,27 +196,42 @@ fun ExtractMediaScreen(
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(visibleCandidates) { candidate ->
+                    val badge = buildCandidateBadge(candidate)
                     Card(
                         modifier = Modifier.width(420.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF171725))
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Text(
-                                text = "${candidate.mediaType.uppercase()} · ${candidate.format.uppercase()} · ${candidate.server}",
+                                text = "$badge · ${candidate.server}",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color.White
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = if (candidate.requiresResolver) "Embed detectado" else "Reproducible directo",
-                                color = Color.White.copy(alpha = 0.65f),
-                                maxLines = 1
-                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                candidate.quality?.let { q ->
+                                    AssistChip(onClick = {}, label = { Text(q.uppercase()) })
+                                }
+                                if (candidate.isDirect) {
+                                    AssistChip(onClick = {}, label = { Text("Directo") })
+                                } else {
+                                    AssistChip(onClick = {}, label = { Text("Embed") })
+                                }
+                            }
                             Spacer(Modifier.height(8.dp))
                             Text(candidate.url, color = Color.White.copy(alpha = 0.75f), maxLines = 3)
+                            if (candidate.diagnostics.isNotEmpty()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    candidate.diagnostics.take(2).joinToString(" | "),
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                             Spacer(Modifier.height(12.dp))
                             FilledTonalButton(
-                                onClick = { onPlayCandidate(candidate.url) },
+                                onClick = { onPlayCandidate(candidate.url, candidate.headers) },
                                 enabled = candidate.format != "embed"
                             ) {
                                 Text(if (candidate.format == "embed") "Embed no directo" else "Reproducir")
@@ -384,7 +401,8 @@ fun DetailScreen(
 @Composable
 fun PlayerScreen(
     videoUrl: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    headers: Map<String, String> = emptyMap()
 ) {
     val context = LocalContext.current
     val onBackPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
@@ -394,13 +412,21 @@ fun PlayerScreen(
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
 
-    // Crear ExoPlayer una sola vez
     val exoPlayer = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.Builder().setUri(videoUrl).build())
-            prepare()
-            playWhenReady = true
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory().apply {
+            if (headers.isNotEmpty()) {
+                setDefaultRequestProperties(headers)
+            }
         }
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(httpDataSourceFactory)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
+                setMediaItem(MediaItem.Builder().setUri(videoUrl).build())
+                prepare()
+                playWhenReady = true
+            }
     }
 
     // Guardar progreso al salir
@@ -601,4 +627,20 @@ private fun formatTime(ms: Long): String {
         "%d:%02d:%02d".format(hours, minutes, seconds)
     else
         "%02d:%02d".format(minutes, seconds)
+}
+
+private fun buildCandidateBadge(candidate: com.tvanime.app.domain.model.DetectedMedia): String {
+    val parts = mutableListOf<String>()
+    val url = candidate.url.lowercase()
+    when {
+        url.contains(".mp4") -> parts.add("MP4")
+        url.contains(".m3u8") -> parts.add("HLS")
+        url.contains(".webm") -> parts.add("WEBM")
+        url.contains(".mkv") -> parts.add("MKV")
+        url.contains(".mp3") || url.contains(".aac") || url.contains(".m4a") -> parts.add("AUDIO")
+        else -> parts.add("HTTP")
+    }
+    candidate.quality?.let { parts.add(it.uppercase()) }
+    parts.add(candidate.mediaType.uppercase())
+    return parts.joinToString(" · ")
 }

@@ -15,7 +15,8 @@ data class DetectedMedia(
     val requiresResolver: Boolean = false,
     val headers: Map<String, String> = emptyMap(),
     val priority: Int = 100,
-    val diagnostics: List<String> = emptyList()
+    val diagnostics: List<String> = emptyList(),
+    val compatibilityScore: Int = 0
 )
 
 data class ExtractionResult(

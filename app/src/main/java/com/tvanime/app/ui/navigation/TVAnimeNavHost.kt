@@ -22,6 +22,16 @@ import com.tvanime.app.ui.viewmodel.SettingsViewModel
 import androidx.activity.compose.BackHandler
 import com.tvanime.app.domain.model.ContentItem
 
+private fun parseHeadersFromRoute(decoded: String): Map<String, String> {
+    val headersPart = decoded.substringAfter("&headers=", "")
+    if (headersPart.isBlank()) return emptyMap()
+    return headersPart.split(",").mapNotNull { pair ->
+        val key = pair.substringBefore("=", "").trim()
+        val value = pair.substringAfter("=", "").trim()
+        if (key.isNotBlank() && value.isNotBlank()) key to value else null
+    }.toMap()
+}
+
 /**
  * NavHost principal de la app Android TV.
  * Rutas:
@@ -63,8 +73,11 @@ fun TVAnimeNavHost(
                 onBack = { navController.popBackStack() },
                 onUrlChanged = vm::updatePageUrl,
                 onExtract = vm::extract,
-                onPlayCandidate = { candidateUrl ->
-                    navController.navigate("player/${Uri.encode(candidateUrl)}")
+                onPlayCandidate = { candidateUrl, headers ->
+                    val headersParam = if (headers.isNotEmpty()) {
+                        "&headers=" + Uri.encode(headers.entries.joinToString(",") { "${it.key}=${it.value}" })
+                    } else ""
+                    navController.navigate("player/${Uri.encode(candidateUrl)}$headersParam")
                 }
             )
         }
@@ -118,9 +131,12 @@ fun TVAnimeNavHost(
 
         // ── PLAYER ────────────────────────────────────────────────────────
         composable("player/{videoUrl}") { backStackEntry ->
-            val videoUrl = Uri.decode(backStackEntry.arguments?.getString("videoUrl").orEmpty())
+            val rawArg = backStackEntry.arguments?.getString("videoUrl").orEmpty()
+            val decoded = Uri.decode(rawArg)
+            val headers = parseHeadersFromRoute(decoded)
+            val videoUrl = decoded.substringBefore("&headers=")
             BackHandler { navController.popBackStack() }
-            PlayerScreen(videoUrl = videoUrl)
+            PlayerScreen(videoUrl = videoUrl, headers = headers)
         }
     }
 }
