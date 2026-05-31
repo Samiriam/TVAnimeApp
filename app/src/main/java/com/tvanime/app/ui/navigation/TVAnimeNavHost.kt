@@ -12,9 +12,11 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.screens.HomeScreen
 import com.tvanime.app.ui.screens.DetailScreen
+import com.tvanime.app.ui.screens.ExtractMediaScreen
 import com.tvanime.app.ui.screens.PlayerScreen
 import com.tvanime.app.ui.screens.SettingsScreen
 import com.tvanime.app.ui.viewmodel.DetailViewModel
+import com.tvanime.app.ui.viewmodel.ExtractMediaViewModel
 import com.tvanime.app.ui.viewmodel.HomeViewModel
 import com.tvanime.app.ui.viewmodel.SettingsViewModel
 import androidx.activity.compose.BackHandler
@@ -42,9 +44,27 @@ fun TVAnimeNavHost(
 
             HomeScreen(
                 catalog = uiState.catalog,
+                onOpenExtractor = { navController.navigate("extract") },
                 onOpenSettings = { navController.navigate("settings") },
                 onContentSelected = { item: ContentItem ->
                     navController.navigate("detail/${Uri.encode(item.id)}")
+                }
+            )
+        }
+
+        composable("extract") {
+            val vm: ExtractMediaViewModel = hiltViewModel()
+            val uiState by vm.uiState.collectAsState()
+
+            BackHandler { navController.popBackStack() }
+
+            ExtractMediaScreen(
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onUrlChanged = vm::updatePageUrl,
+                onExtract = vm::extract,
+                onPlayCandidate = { candidateUrl ->
+                    navController.navigate("player/${Uri.encode(candidateUrl)}")
                 }
             )
         }

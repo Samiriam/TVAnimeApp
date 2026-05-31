@@ -42,11 +42,13 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.tvanime.app.data.settings.PlaylistSource
 import com.tvanime.app.domain.model.ContentItem
+import com.tvanime.app.ui.viewmodel.ExtractMediaUiState
 import com.tvanime.app.ui.viewmodel.SettingsUiState
 
 @Composable
 fun HomeScreen(
     catalog: List<ContentItem>,
+    onOpenExtractor: () -> Unit,
     onOpenSettings: () -> Unit,
     onContentSelected: (ContentItem) -> Unit
 ) {
@@ -61,10 +63,17 @@ fun HomeScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = Color.White
             )
-            OutlinedButton(onClick = onOpenSettings) {
-                Icon(Icons.Default.Settings, contentDescription = null)
-                Spacer(modifier = Modifier.size(8.dp))
-                Text("Ajustes")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onOpenExtractor) {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Analizar URL")
+                }
+                OutlinedButton(onClick = onOpenSettings) {
+                    Icon(Icons.Default.Settings, contentDescription = null)
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Ajustes")
+                }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -85,6 +94,89 @@ fun HomeScreen(
                             Text(text = item.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(text = item.description, color = Color.White.copy(alpha = 0.75f), maxLines = 2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExtractMediaScreen(
+    uiState: ExtractMediaUiState,
+    onBack: () -> Unit,
+    onUrlChanged: (String) -> Unit,
+    onExtract: () -> Unit,
+    onPlayCandidate: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Analizar pagina publica", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Primer extractor generico: detecta enlaces HLS, MP4, audio y embeds visibles en el HTML publico.",
+            color = Color.White.copy(alpha = 0.8f)
+        )
+        Spacer(Modifier.height(20.dp))
+
+        OutlinedTextField(
+            value = uiState.pageUrl,
+            onValueChange = onUrlChanged,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("URL publica") },
+            placeholder = { Text("https://example.com/page") },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        FilledTonalButton(onClick = onExtract, enabled = !uiState.isLoading) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text("Analizar")
+        }
+
+        uiState.error?.let {
+            Spacer(Modifier.height(16.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        uiState.result?.let { result ->
+            Spacer(Modifier.height(20.dp))
+            Text(result.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
+            Spacer(Modifier.height(6.dp))
+            Text(result.sourceHost, color = Color.White.copy(alpha = 0.7f))
+            Spacer(Modifier.height(16.dp))
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(result.candidates) { candidate ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF171725))
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = "${candidate.mediaType.uppercase()} · ${candidate.format.uppercase()}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(candidate.url, color = Color.White.copy(alpha = 0.75f), maxLines = 3)
+                            Spacer(Modifier.height(12.dp))
+                            FilledTonalButton(
+                                onClick = { onPlayCandidate(candidate.url) },
+                                enabled = candidate.format != "embed"
+                            ) {
+                                Text(if (candidate.format == "embed") "Embed no directo" else "Reproducir")
+                            }
                         }
                     }
                 }

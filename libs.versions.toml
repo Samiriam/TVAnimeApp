@@ -46,6 +46,7 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 coil-compose = { module = "io.coil-kt:coil-compose", version = "2.5.0" }
 work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+jsoup = { module = "org.jsoup:jsoup", version = "1.18.1" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

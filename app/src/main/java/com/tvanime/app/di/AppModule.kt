@@ -9,12 +9,15 @@ import com.tvanime.app.data.local.TVAnimeDatabase
 import com.tvanime.app.data.parser.M3uPlaylistParser
 import com.tvanime.app.data.remote.api.SourceApi
 import com.tvanime.app.data.remote.interceptor.UserAgentInterceptor
+import com.tvanime.app.data.repository.ExtractionRepository
+import com.tvanime.app.data.repository.ExtractionRepositoryImpl
 import com.tvanime.app.data.repository.ContentsRepositoryImpl
 import com.tvanime.app.data.repository.FavoritesRepositoryImpl
 import com.tvanime.app.data.repository.HistoryRepositoryImpl
 import com.tvanime.app.data.repository.ContentsRepository
 import com.tvanime.app.domain.usecase.GetCatalogUseCase
 import com.tvanime.app.domain.usecase.GetDetailUseCase
+import com.tvanime.app.domain.usecase.ExtractMediaFromPageUseCase
 import com.tvanime.app.domain.usecase.GetHistoryUseCase
 import com.tvanime.app.domain.usecase.SaveProgressUseCase
 import com.tvanime.app.domain.usecase.ToggleFavoriteUseCase
@@ -93,6 +96,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideExtractionRepository(impl: ExtractionRepositoryImpl): ExtractionRepository = impl
+
+    @Provides
+    @Singleton
     fun provideHistoryRepository(
         historyDao: HistoryDao
     ): com.tvanime.app.data.repository.HistoryRepository =
@@ -112,6 +119,10 @@ object AppModule {
     @Provides
     fun provideGetDetailUseCase(repo: ContentsRepository) =
         GetDetailUseCase(repo)
+
+    @Provides
+    fun provideExtractMediaFromPageUseCase(repo: ExtractionRepository) =
+        ExtractMediaFromPageUseCase(repo)
 
     @Provides
     fun provideSaveProgressUseCase(

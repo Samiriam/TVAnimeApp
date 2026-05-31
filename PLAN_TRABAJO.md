@@ -446,12 +446,15 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `ui/navigation/TVAnimeNavHost.kt`, `ui/screens/Screens.kt`, `ui/viewmodel/SettingsViewModel.kt` | Se agrego pantalla de ajustes para elegir demo local o URL remota M3U y lanzar sincronizacion | `assembleDebug` exitoso | ✅ |
 | 2026-05-30 | `AppModule.kt`, `libs.versions.toml`, `app/build.gradle.kts`, `local.properties`, `gradle.properties` | Se corrigio la configuracion de Hilt/WorkManager, binding del parser y el entorno local de build para compilar el APK de prueba | `assembleDebug` exitoso | ✅ |
 | 2026-05-30 | `RemoteContentItem.kt`, `UserAgentInterceptor.kt`, `SyncCatalogUseCase.kt`, `PlayerConfig.kt`, `ContentCard.kt` | Se corrigieron errores previos de compilacion Kotlin/KSP que bloqueaban el build del proyecto | `assembleDebug` exitoso | ✅ |
+| 2026-05-30 | `data/extraction/*`, `data/repository/ExtractionRepository*`, `domain/model/DetectedMedia.kt`, `domain/usecase/ExtractMediaFromPageUseCase.kt`, `ui/viewmodel/ExtractMediaViewModel.kt`, `ui/screens/Screens.kt`, `ui/navigation/TVAnimeNavHost.kt` | Se integro el primer extractor HTML generico con validacion https, bloqueo basico de hosts locales/privados, deteccion de HLS/MP4/audio/embed y pantalla TV-first para analizar URL | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 
 ## Pruebas Y Builds
 
 | Fecha | Comando / prueba | Resultado | Artefacto | Pendiente |
 |---|---|---|---|---|
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso | `app/build/outputs/apk/debug/app-debug.apk` (~13.5 MB, generado el 2026-05-30) | Probar instalacion y flujo en Android TV real o emulador |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Tests unitarios exitosos para extractor HTML y validador URL | No aplica | Agregar mas fixtures por dominio autorizado |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con scraping generico integrado | `app/build/outputs/apk/debug/app-debug.apk` (~13.7 MB, generado el 2026-05-30) | Probar pantalla Analizar URL en Android TV real o emulador |
 
 ## Estado Actual
 
@@ -461,15 +464,19 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 - APK `debug` generado en `app/build/outputs/apk/debug/app-debug.apk`.
 - Configuracion del origen M3U desde UI con opcion demo local o URL remota.
 - Sincronizacion inmediata y periodica con WorkManager al guardar ajustes y al iniciar la app.
+- Pantalla `Analizar URL` disponible desde Home.
+- Extractor HTML generico detecta candidatos `.m3u8`, `.mp4`, audio y `iframe` declarados en HTML publico.
 
 ### No Funciona
 
 - No se ejecuto aun prueba manual en Android TV real o emulador durante esta sesion.
+- El extractor especializado por dominio todavia no existe; la implementacion actual es generica.
 
 ### Falta Realizar
 
 - Instalar el APK en emulador/dispositivo Android TV y verificar Home, Ajustes, sync demo y reproduccion.
-- Empezar la fase de scraping usando como referencias `anime1v-api` y `balandro-stremio`, adaptando solo lo util al APK Android TV.
+- Probar `Analizar URL` contra una pagina publica autorizada con HLS/MP4 directo.
+- Definir el primer dominio autorizado para crear extractor especializado con fixtures versionados.
 
 ## Decisiones Pendientes Antes De Implementar
 
