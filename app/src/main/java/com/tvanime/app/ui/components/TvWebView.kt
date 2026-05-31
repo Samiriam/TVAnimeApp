@@ -58,7 +58,7 @@ fun TvWebView(
 
     AndroidView(
         factory = { ctx ->
-            WebView(ctx.applicationContext).apply {
+            WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
@@ -68,6 +68,8 @@ fun TvWebView(
                 settings.useWideViewPort = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 settings.setGeolocationEnabled(false)
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
 
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
 

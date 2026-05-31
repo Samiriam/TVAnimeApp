@@ -36,7 +36,9 @@ abstract class TVAnimeDatabase : RoomDatabase() {
                     context.applicationContext,
                     TVAnimeDatabase::class.java,
                     DATABASE_NAME
-                ).build().also { INSTANCE = it }
+                )
+                    .fallbackToDestructiveMigration()
+                    .build().also { INSTANCE = it }
             }
         }
     }

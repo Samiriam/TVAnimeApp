@@ -301,9 +301,11 @@ private fun AndroidWebView(
     onTitleChanged: (String?) -> Unit,
     onWebViewReady: (WebView) -> Unit
 ) {
+    var webViewError by remember { mutableStateOf<String?>(null) }
+
     AndroidView(
         factory = { ctx ->
-            WebView(ctx.applicationContext).apply {
+            WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
@@ -313,6 +315,8 @@ private fun AndroidWebView(
                 settings.useWideViewPort = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 settings.setGeolocationEnabled(false)
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
 
                 setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
@@ -339,7 +343,7 @@ private fun AndroidWebView(
                                 else -> "VIDEO"
                             }
 
-                            onStreamDetected(reqUrl, format, request.url.host ?: "")
+                            post { onStreamDetected(reqUrl, format, request.url.host ?: "") }
                         }
 
                         return super.shouldInterceptRequest(view, request)
@@ -347,15 +351,38 @@ private fun AndroidWebView(
 
                     override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        url?.let { onUrlChanged(it) }
-                        onPageLoading(true)
+                        webViewError = null
+                        url?.let { post { onUrlChanged(it) } }
+                        post { onPageLoading(true) }
                     }
 
                     override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        onPageLoading(false)
-                        view?.title?.let { onTitleChanged(it) }
+                        post { onPageLoading(false) }
+                        view?.title?.let { post { onTitleChanged(it) } }
                         view?.evaluateJavascript(INJECTED_JS, null)
+                    }
+
+                    @Suppress("DEPRECATION")
+                    override fun onReceivedError(
+                        view: android.webkit.WebView?,
+                        errorCode: Int,
+                        description: String?,
+                        failingUrl: String?
+                    ) {
+                        super.onReceivedError(view, errorCode, description, failingUrl)
+                        webViewError = description ?: "Error de carga"
+                    }
+
+                    override fun onReceivedHttpError(
+                        view: android.webkit.WebView?,
+                        request: android.webkit.WebResourceRequest?,
+                        errorResponse: android.webkit.WebResourceResponse?
+                    ) {
+                        super.onReceivedHttpError(view, request, errorResponse)
+                        if (request?.isForMainFrame == true) {
+                            webViewError = "Error HTTP: ${errorResponse?.statusCode}"
+                        }
                     }
                 }
 
@@ -369,7 +396,7 @@ private fun AndroidWebView(
                     @android.webkit.JavascriptInterface
                     fun onVideoDetected(url: String) {
                         val format = detectFormat(url)
-                        onStreamDetected(url, format, "")
+                        post { onStreamDetected(url, format, "") }
                     }
                 }, "AndroidCapture")
 
@@ -393,9 +420,9 @@ private fun AndroidWebView(
         modifier = Modifier
             .fillMaxSize()
             .border(
-                3.dp,
-                Brush.linearGradient(listOf(FocusCyan.copy(alpha = 0.3f), FocusGlow.copy(alpha = 0.3f))),
-                RoundedCornerShape(12.dp)
+                width = 3.dp,
+                color = if (webViewError != null) Color.Red.copy(alpha = 0.5f) else FocusCyan.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(12.dp)
             ),
         update = { webView ->
             if (webView.url != url && !url.startsWith("about:blank")) {

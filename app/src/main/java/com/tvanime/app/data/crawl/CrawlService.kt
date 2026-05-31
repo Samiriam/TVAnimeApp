@@ -133,19 +133,29 @@ class CrawlService @Inject constructor(
             "return JSON.stringify(items);" +
             "})();"
 
-        webView.evaluateJavascript(js) { jsonResult ->
+        webView.evaluateJavascript(js) { rawResult ->
             try {
+                val jsonString = rawResult.trim()
+                    .removeSurrounding("\"")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+
+                if (jsonString.isBlank() || jsonString == "null") {
+                    onResult(emptyList())
+                    return@evaluateJavascript
+                }
+
                 val items = mutableListOf<CrawlItem>()
-                val arr = JSONArray(jsonResult)
+                val arr = JSONArray(jsonString)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     items.add(
                         CrawlItem(
-                            title = obj.getString("title"),
-                            thumbnail = obj.getString("thumbnail"),
-                            year = obj.getString("year"),
-                            rating = obj.getDouble("rating").toFloat(),
-                            detailUrl = obj.getString("detailUrl"),
+                            title = obj.optString("title", ""),
+                            thumbnail = obj.optString("thumbnail", ""),
+                            year = obj.optString("year", ""),
+                            rating = obj.optDouble("rating", 0.0).toFloat(),
+                            detailUrl = obj.optString("detailUrl", ""),
                             category = category,
                             source = site.name
                         )

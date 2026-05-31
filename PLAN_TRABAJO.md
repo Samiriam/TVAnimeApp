@@ -1016,3 +1016,89 @@ El repositorio explica correctamente el estado actual del producto y su arquitec
 3. Validacion manual Android TV.
 4. Decision final sobre auto-crawler.
 5. Actualizacion de documentacion del repositorio.
+
+---
+
+## Revision Tecnica Y Reporte Manual - 2026-05-31 18:20
+
+### Contexto
+
+El usuario reporto dos problemas despues de la revision del commit `b82b721`:
+
+1. El foco visual con control remoto no se ve al moverse con flechas entre menu/items; parece quedarse pegado en la primera seleccion y solo se evidencia el cambio al presionar OK.
+2. Al presionar `Browser` / `Navegador Web`, la app se rompio/salio.
+
+Tambien se pregunto si los hallazgos de la revision anterior habian quedado registrados en este plan. Respuesta operativa: no habian quedado registrados en el archivo durante la revision anterior porque fue una revision sin cambios; quedan registrados desde esta seccion.
+
+### Hallazgos De Revision Anterior Ahora Registrados
+
+| Prioridad | Area | Hallazgo | Evidencia | Estado |
+|---|---|---|---|---|
+| Critica | Room | Se subio `TVAnimeDatabase` de version 1 a 2 sin `Migration(1, 2)` ni `fallbackToDestructiveMigration()` | `TVAnimeDatabase.kt` version `2` con nueva entidad `CrawlCategoryEntity`; builder sin migraciones | Pendiente |
+| Alta | Auto-crawler | En instalacion limpia, las categorias default se muestran en UI pero no se persisten; el worker puede no encontrar categorias habilitadas | `CrawlerViewModel` crea `defaultCats` solo en memoria; `CrawlWorker` usa `observeEnabled().first()` | Pendiente |
+| Alta | Auto-crawler | El parseo de `evaluateJavascript()` probablemente devuelve vacio porque Android entrega el resultado JSON como string escapado/quoteado | `CrawlService.extractCatalog()` hace `JSONArray(jsonResult)` directo | Pendiente |
+| Alta | Catalogo/Player | Los items crawleados se guardan con `videoUrl = ""`, por lo que no son reproducibles desde `DetailScreen` | `CrawlWorker.kt` crea `ContentEntity(videoUrl = "")`; `TVAnimeNavHost` solo abre player si `videoUrl` no esta en blanco | Pendiente |
+| Media | Datos | Cada crawl puede duplicar catalogo porque se usa `UUID.randomUUID()` como ID estable | `CrawlWorker.kt` genera ID aleatorio por item | Pendiente |
+| Media | Documentacion | Algunas secciones del plan seguian marcando `FASE 2: Auto-Crawler` como pendiente/desalineada con el commit reciente | `PLAN_TRABAJO.md` contiene estados historicos mezclados | En curso |
+| Bloqueante de verificacion | Entorno local | No se pudo ejecutar build desde esta terminal porque no hay `JAVA_HOME` ni `java` en PATH | `./gradlew.bat assembleDebug` falla con `JAVA_HOME is not set` | Pendiente de entorno |
+
+### Hipotesis De Causa - Foco D-pad No Visible
+
+Se revisaron `Screens.kt`, `WebViewBrowserScreen.kt`, `UrlBar.kt`, `VideoCaptureOverlay.kt` y `TvWebView.kt`.
+
+Posibles fuentes consideradas:
+
+1. Orden incorrecto entre `focusable()` y `onFocusChanged()`.
+2. Uso duplicado de focus en componentes Material (`Button`, `IconButton`, `Surface`, `Card`) mas `Modifier.focusable()` manual.
+3. Falta de `interactionSource.collectIsFocusedAsState()` en botones/clickables Material.
+4. `LazyRow`/`LazyColumn` sin restauracion/solicitud explicita de foco inicial.
+5. WebView capturando flechas D-pad y consumiendo eventos.
+6. Superposiciones (`AnimatedVisibility`, overlay) dejando elementos focusables activos o interceptando foco.
+7. Estilos de foco aplicados sobre un nodo que no es el nodo realmente enfocado.
+
+Diagnostico mas probable:
+
+- Hay un patron repetido `.focusable().onFocusChanged { ... }` en varios controles. En Compose, para observar el foco del nodo focusable de forma confiable, `onFocusChanged` debe envolver/preceder el nodo focusable o debe usarse `MutableInteractionSource` en componentes Material. Con el orden actual, el estado visual puede quedar mirando otro nodo y no actualizarse cuando el control remoto cambia foco.
+- En componentes Material como `IconButton`, `Button`, `OutlinedButton`, `Card` y `Surface(onClick)`, agregar `focusable()` manual puede crear focos duplicados: el foco real lo toma el componente interno, pero el borde/escala escucha otro nodo. Eso coincide con el sintoma: el foco si cambia internamente, pero el indicador visual no acompana hasta ejecutar OK.
+
+### Hipotesis De Causa - Browser Rompe/Sale Al Abrir
+
+Se reviso `WebViewBrowserScreen.kt` y el `AndroidWebView` local.
+
+Posibles fuentes consideradas:
+
+1. Creacion de `WebView(ctx.applicationContext)` dentro de `AndroidView` en vez de usar el `ctx` de la vista/actividad.
+2. `WebView` cargando `about:blank` inicialmente mientras el selector esta visible y luego URLs externas.
+3. Sitios remotos con certificados, redirecciones, ads o scripts pesados que rompen WebView.
+4. Uso de `addJavascriptInterface` e inyeccion JS antes/despues de carga.
+5. Consumo de teclas D-pad dentro del WebView con `setOnKeyListener`.
+6. Falta de manejo de errores de pagina (`onReceivedError`, `onReceivedHttpError`, `onRenderProcessGone`).
+7. Falta de log visible para saber si fue crash nativo/WebView renderer, excepcion Kotlin o cierre por memoria.
+
+Diagnostico mas probable:
+
+- La causa mas sospechosa en codigo es `WebView(ctx.applicationContext)` en `WebViewBrowserScreen.kt`. Para WebView embebido en Compose conviene crearla con el contexto de la vista (`WebView(ctx)`), no con application context, y manejar `onRenderProcessGone` para evitar salida completa si el renderer muere.
+- Falta instrumentacion defensiva: no hay `onReceivedError`, `onReceivedHttpError`, `onRenderProcessGone` ni `try/catch`/logging minimo alrededor de carga, por lo que el usuario solo ve que la app sale.
+
+### Plan De Correccion Propuesto Antes De Tocar Codigo
+
+| Paso | Cambio propuesto | Motivo | Verificacion esperada |
+|---|---|---|---|
+| 1 | Corregir foco TV con un helper unico que use `onFocusChanged` en el orden correcto o `interactionSource` para Material | Que el borde/escala siga el foco real del D-pad | Moverse con flechas por menu, cards, settings y overlay debe mostrar foco inmediato |
+| 2 | Quitar `focusable()` manual redundante en botones Material cuando corresponda | Evitar focos duplicados invisibles | El foco no debe quedarse visualmente pegado |
+| 3 | Crear `WebView(ctx)`, no `WebView(ctx.applicationContext)` | Reducir crash/instabilidad al abrir navegador | Abrir `Navegador Web` sin salida de app |
+| 4 | Agregar manejo defensivo de errores WebView (`onReceivedError`, `onReceivedHttpError`, `onRenderProcessGone`) | Obtener evidencia y evitar cierres abruptos | Si falla una pagina, se registra/recupera sin cerrar app completa |
+| 5 | Reintentar build con JDK disponible | Confirmar que el fix compila | `./gradlew.bat assembleDebug` exitoso o error registrado |
+
+### Instrucciones Para El Programador
+
+Esta seccion es una auditoria y no implica cambios de codigo aplicados por Kilo. El programador debe tomar estos hallazgos como backlog priorizado.
+
+Decision confirmada por el usuario: priorizar la primera opcion recomendada, es decir, corregir foco D-pad + crash/salida al abrir `Browser` / `Navegador Web` antes de abordar el auto-crawler/Room.
+
+Orden recomendado:
+
+1. Corregir primero foco D-pad + crash al abrir `Navegador Web`, porque bloquea el uso inmediato de la app en TV.
+2. Despues corregir riesgos tecnicos del auto-crawler/Room: migracion v1->v2, persistencia de categorias default, parseo de `evaluateJavascript()`, `videoUrl` vacio e IDs estables.
+3. Registrar evidencia de cada correccion: commit, build, prueba manual en Android TV/emulador y resultado.
+4. No marcar el auto-crawler como funcional hasta demostrar flujo completo: categoria habilitada -> crawl -> items en Room -> detalle -> reproduccion o apertura correcta del recurso.

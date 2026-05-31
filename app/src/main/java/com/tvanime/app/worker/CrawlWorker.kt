@@ -14,6 +14,7 @@ import com.tvanime.app.data.local.dao.CrawlCategoryDao
 import com.tvanime.app.domain.model.CategoryConfig
 import com.tvanime.app.domain.model.SiteConfig
 import kotlinx.coroutines.flow.first
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class CrawlWorker(
@@ -40,9 +41,12 @@ class CrawlWorker(
                 val result = crawlService.crawlCategory(catEntity.category, sites)
 
                 if (result.items.isNotEmpty()) {
-                    val entities = result.items.map { item ->
-                        com.tvanime.app.data.local.entity.ContentEntity(
-                            id = java.util.UUID.randomUUID().toString(),
+                    val existingIds = contentDao.observeAll().first().associateBy { it.id }
+                    val entities = result.items.mapNotNull { item ->
+                        val stableId = stableId(item.title, item.source)
+                        if (existingIds.containsKey(stableId)) null
+                        else com.tvanime.app.data.local.entity.ContentEntity(
+                            id = stableId,
                             title = item.title,
                             description = "",
                             posterUrl = item.thumbnail,
@@ -57,7 +61,9 @@ class CrawlWorker(
                             syncedAt = System.currentTimeMillis()
                         )
                     }
-                    contentDao.insertAll(entities)
+                    if (entities.isNotEmpty()) {
+                        contentDao.insertAll(entities)
+                    }
                 }
 
                 crawlCategoryDao.updateLastCrawled(catEntity.category, System.currentTimeMillis())
@@ -86,6 +92,12 @@ class CrawlWorker(
             )
             else -> emptyList()
         }
+    }
+
+    private fun stableId(title: String, source: String): String {
+        val input = "${title.lowercase().trim()}_${source.lowercase().trim()}"
+        val bytes = MessageDigest.getInstance("MD5").digest(input.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     companion object {
