@@ -9,15 +9,15 @@ import com.tvanime.app.data.local.TVAnimeDatabase
 import com.tvanime.app.data.parser.M3uPlaylistParser
 import com.tvanime.app.data.remote.api.SourceApi
 import com.tvanime.app.data.remote.interceptor.UserAgentInterceptor
-import com.tvanime.app.data.repository.ExtractionRepository
-import com.tvanime.app.data.repository.ExtractionRepositoryImpl
+import com.tvanime.app.data.capture.WebViewSessionManager
+import com.tvanime.app.data.capture.WebViewVideoCapture
 import com.tvanime.app.data.repository.ContentsRepositoryImpl
 import com.tvanime.app.data.repository.FavoritesRepositoryImpl
 import com.tvanime.app.data.repository.HistoryRepositoryImpl
 import com.tvanime.app.data.repository.ContentsRepository
 import com.tvanime.app.domain.usecase.GetCatalogUseCase
 import com.tvanime.app.domain.usecase.GetDetailUseCase
-import com.tvanime.app.domain.usecase.ExtractMediaFromPageUseCase
+
 import com.tvanime.app.domain.usecase.GetHistoryUseCase
 import com.tvanime.app.domain.usecase.SaveProgressUseCase
 import com.tvanime.app.domain.usecase.ToggleFavoriteUseCase
@@ -94,9 +94,7 @@ object AppModule {
     ): ContentsRepository =
         ContentsRepositoryImpl(api = api, contentDao = contentDao, historyDao = historyDao, favoriteDao = favoriteDao)
 
-    @Provides
-    @Singleton
-    fun provideExtractionRepository(impl: ExtractionRepositoryImpl): ExtractionRepository = impl
+
 
     @Provides
     @Singleton
@@ -120,9 +118,7 @@ object AppModule {
     fun provideGetDetailUseCase(repo: ContentsRepository) =
         GetDetailUseCase(repo)
 
-    @Provides
-    fun provideExtractMediaFromPageUseCase(repo: ExtractionRepository) =
-        ExtractMediaFromPageUseCase(repo)
+
 
     @Provides
     fun provideSaveProgressUseCase(
@@ -138,4 +134,16 @@ object AppModule {
     fun provideToggleFavoriteUseCase(
         favoritesRepo: com.tvanime.app.data.repository.FavoritesRepository
     ) = ToggleFavoriteUseCase(favoritesRepo)
+
+    @Provides
+    @Singleton
+    fun provideWebViewVideoCapture(
+        @ApplicationContext context: Context
+    ): WebViewVideoCapture = WebViewVideoCapture(context)
+
+    @Provides
+    @Singleton
+    fun provideWebViewSessionManager(
+        @ApplicationContext context: Context
+    ): WebViewSessionManager = WebViewSessionManager(context)
 }

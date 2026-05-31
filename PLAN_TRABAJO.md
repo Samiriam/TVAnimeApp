@@ -459,17 +459,86 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 
 | Fecha | Comando / prueba | Resultado | Artefacto | Pendiente |
 |---|---|---|---|---|
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso | `app/build/outputs/apk/debug/app-debug.apk` (~13.5 MB, generado el 2026-05-30) | Probar instalacion y flujo en Android TV real o emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Tests unitarios exitosos para extractor HTML y validador URL | No aplica | Agregar mas fixtures por dominio autorizado |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con scraping generico integrado | `app/build/outputs/apk/debug/app-debug.apk` (~13.7 MB, generado el 2026-05-30) | Probar pantalla Analizar URL en Android TV real o emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Tests unitarios exitosos para normalizacion de candidatos, clasificacion de servidores, extractor HTML y validador URL | No aplica | Agregar fixtures reales por servidor |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras `CandidateNormalizer` + `ServerClassifier` | `app/build/outputs/apk/debug/app-debug.apk` | Probar en Android TV/emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Primer intento fallo en `HtmlMediaExtractorTest.extractsScriptAndDataAttributeCandidates` porque `data-file` relativo no se procesaba como candidato directo; se corrigio y el segundo intento paso con 11 tests | No aplica | Agregar fixtures por dominio autorizado |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras resolver embeds y sitios recurrentes | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:11:07`) | Probar instalacion y flujo en Android TV/emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Primer intento fallo por captura demasiado amplia de URL anidada (`player?url=https://cdn...`); se corrigio para preferir la URL interna y el ultimo intento paso con 15 tests | No aplica | Probar con las 3 paginas reportadas por el usuario desde el APK |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras scraping agresivo sin cambios de UI adicionales | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:48:14`) | Instalar y validar en Android TV real/emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con resolvers especificos, scoring, headers al reproductor y mejoras de UI | `app/build/outputs/apk/debug/app-debug.apk` (`14424977` bytes, `2026-05-30 23:37:15`) | Probar resolvers de Streamtape/Streamwish/VOE/Mixdrop en Android TV real/emulador |
-| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con mejoras de fluidez UI: búsqueda web, tarjetas rediseñadas, auto-análisis | `app/build/outputs/apk/debug/app-debug.apk` (`13840000` bytes, `2026-05-30 23:53:01`) | Probar flujo de búsqueda web y auto-análisis en Android TV real/emulador |
+| 2026-05-31 | `JAVA_HOME=... + ./gradlew.bat assembleDebug` | Build exitoso — Navegador Web v1 | `app/build/outputs/apk/debug/app-debug.apk` (`14521278` bytes, `2026-05-31 17:40:26`) | Probar en Android TV real |
+
+## Build V2 — Navegador Web + Auto-Crawler
+
+| Fase | Estado | Descripcion |
+|---|---|---|
+| FASE 1: Navegador Web | ✅ Completada | WebViewBrowserScreen, TvWebView, UrlBar, VideoCaptureOverlay, WebViewVideoCapture, WebViewSessionManager, WebViewBrowserViewModel |
+| FASE 2: Auto-Crawler | ⏳ Pendiente | CrawlCategoryEntity, DAO, CrawlService, JsCatalogExtractor, CrawlWorker, CrawlerSettingsScreen |
+| FASE 3: Limpieza scraping | ✅ Completada | Eliminados 21 archivos de scraping (JsEvaluator, PackerUnpacker, WebViewFetcher, HtmlMediaExtractor, etc.) |
+| FASE 4: Git commit + push | ⏳ Pendiente | Commit + push a origin/main |
+
+### Archivos creados (V2)
+
+| Archivo | Estado |
+|---|---|
+| `domain/model/CapturedStream.kt` | ✅ |
+| `domain/model/CrawlResult.kt` | ✅ |
+| `domain/model/SiteConfig.kt` | ✅ |
+| `data/capture/WebViewVideoCapture.kt` | ✅ |
+| `data/capture/WebViewSessionManager.kt` | ✅ |
+| `ui/components/TvWebView.kt` | ✅ |
+| `ui/components/UrlBar.kt` | ✅ |
+| `ui/components/VideoCaptureOverlay.kt` | ✅ |
+| `ui/screens/WebViewBrowserScreen.kt` | ✅ |
+| `ui/viewmodel/WebViewBrowserViewModel.kt` | ✅ |
+| `worker/ContentSyncWorker.kt` | ✅ (recreado) |
+
+### Archivos eliminados (scraping)
+
+| Archivo | Razon |
+|---|---|
+| 11 archivos en `data/extraction/` | Todo el scraping — innecesario con WebView |
+| `data/repository/ExtractionRepository.kt` | Sin uso |
+| `data/repository/ExtractionRepositoryImpl.kt` | Sin uso |
+| `domain/usecase/ExtractMediaFromPageUseCase.kt` | Sin uso |
+| `ui/viewmodel/ExtractMediaViewModel.kt` | Sin uso |
+| `player/WebViewMediaInterceptor.kt` | Reemplazado por WebViewVideoCapture |
+| `data/settings/RecurringSitesStore.kt` | Sin uso |
+| `data/settings/RecurringSitesSyncScheduler.kt` | Sin uso |
+| `worker/RecurringSitesSyncWorker.kt` | Sin uso |
+| 5 archivos de test en `data/extraction/` | Sin sentido sin el extractor |
+
+---
+
+## Estado Actual
+
+### Funciona
+
+- Compilacion `debug` reproducible con JDK 17
+- APK generado: `app/build/outputs/apk/debug/app-debug.apk` (14.5 MB, `2026-05-31 17:40:26`)
+- **Navegador Web completo**: selector de sitios por categoria, WebView TV-optimizado con D-pad, barra URL con navegacion, overlay de captura de video
+- HomeScreen con NavItem "Navegador Web" y "Buscar"
+- PlayerScreen reutilizado con ExoPlayer/Media3
+- DetailScreen y SettingsScreen funcionales
+- M3U sync via WorkManager
+- UI focus con borde cyan brillante en todos los elementos interactivos
+
+### Pendiente
+
+- FASE 2: Auto-Crawler (crawl periodico de categorias cada 6h)
+- FASE 4: Git commit + push
+- Probar en Android TV real
+
+## Arquitectura Final (V2)
+
+```
+HOME
+├── NavItem: "Navegador Web" ──→ WebViewBrowserScreen
+├── NavItem: "Buscar" ──→ WebViewBrowserScreen  
+├── NavItem: "Mi biblioteca" ──→ (placeholder)
+├── NavItem: "Ajustes" ──→ SettingsScreen
+└── Catálogo M3U (Room)
+
+WebViewBrowserScreen:
+├── SiteSelector (sitios preconfigurados por categoria)
+├── UrlBar (◀ ▶ ⟳ + input, D-pad focusable)
+├── AndroidWebView (D-pad: scroll, click, back)
+└── VideoCaptureOverlay (detecta .m3u8/.mp4/.webm → "Reproducir en TV")
+    └── PlayerScreen (ExoPlayer/Media3)
+```
 
 ## Estado Actual
 
@@ -606,6 +675,173 @@ Repositorios revisados en temporal:
 - No copiar masivamente logica de terceros dentro del APK sin adaptar; preferir reimplementar patrones pequenos y verificables.
 - No introducir FFmpeg dentro del APK en esta fase; priorizar reproduccion directa Media3.
 - No usar Puppeteer dentro del APK; si se necesita navegador, usar WebView Android acotado o un servicio auxiliar.
+
+## Plan V2: Navegador Web + Auto-Crawler
+
+**Fecha:** 2026-05-31 | **Decisión del usuario:** Confirmada
+
+### Decisiones tomadas
+
+| Decisión | Opción elegida |
+|---|---|
+| Crawler: extraer video URLs | **Sí — al catalogar** |
+| Frecuencia de crawl | **Cada 6 horas** |
+| Overlay de video | **Siempre visible al detectar** |
+| Limpieza de archivos | **Sí — eliminar todo el scraping** |
+
+### Arquitectura nueva
+
+```
+HOME
+├── NavItem: "Navegador Web" ──→ WebViewBrowserScreen
+├── NavItem: "Mi Biblioteca" ──→ existente (favoritos, historial)
+├── NavItem: "Ajustes" ──→ existente (M3U) + nuevo tab "Categorías"
+└── Catálogo (crawl)
+
+HOME → Catalog (ContentItem desde Room)
+    → DetailScreen
+    → PLAY → PlayerScreen (URL ya viene en ContentItem.videoUrl)
+
+HOME → NavItem "Navegador Web"
+    → WebViewBrowserScreen
+        ├── UrlBar (◀ ▶ ⟳ + input)
+        ├── TvWebView (D-pad navigable)
+        └── VideoCaptureOverlay (detecta video → "▶ Reproducir en TV")
+            → PlayerScreen
+```
+
+### Flujo 1: Navegador Web
+
+```
+1. Usuario selecciona "Navegador Web" desde Home
+2. Ve sitios preconfigurados organizados por categoría
+3. Selecciona sitio → WebView abre la URL
+4. JS injection detecta clicks en videos
+5. Overlay muestra: "▶ Reproducir en TV" + URL + calidad
+6. Usuario confirma → captura URL + cookies + headers
+7. Reproduce en PlayerScreen
+```
+
+### Flujo 2: Auto-Crawler
+
+```
+1. Usuario abre Ajustes → "Categorías"
+2. Activa: Anime ✓, Películas ✓, Series ✓
+3. Por cada sitio activo por categoría:
+   - WebView abre la página principal
+   - JS injection extrae: título, thumbnail, año, rating, URL del detail page
+   - El detail page se resuelve para obtener la URL del video
+   - Se guarda en Room: ContentEntity con videoUrl ya resuelto
+4. Home muestra contenido categorizado
+5. Usuario abre contenido → PLAY → reproduce directo
+```
+
+### Archivos creados
+
+| Archivo | Responsabilidad |
+|---|---|
+| `domain/model/CapturedStream.kt` | Modelo: url, format, quality, domain, headers, timestamp |
+| `domain/model/CrawlResult.kt` | Modelo: título, thumbnail, año, rating, detailUrl, videoUrl, categoría |
+| `domain/model/SiteConfig.kt` | SiteConfig y CategoryConfig para crawler |
+| `data/capture/WebViewVideoCapture.kt` | Captura URLs desde WebViewClient + JS interface |
+| `data/capture/WebViewSessionManager.kt` | Persiste cookies/headers para reproductor |
+| `ui/components/TvWebView.kt` | Composable WebView TV-optimizado con D-pad |
+| `ui/components/UrlBar.kt` | Barra URL con botones ◀ ▶ ⟳ + input, todos focusable |
+| `ui/components/VideoCaptureOverlay.kt` | Overlay flotante de captura |
+| `ui/screens/WebViewBrowserScreen.kt` | Pantalla completa: URL bar + WebView + overlay |
+| `ui/viewmodel/WebViewBrowserViewModel.kt` | Estado del navegador, streams detectados |
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---|---|
+| `AppModule.kt` | Agregados providers para WebViewVideoCapture y WebViewSessionManager |
+| `TVAnimeNavHost.kt` | Agregada ruta `browser` → WebViewBrowserScreen, eliminada ruta `extract` |
+| `Screens.kt` → HomeScreen | NavItem "Navegador Web" + "Buscar", botones en empty state |
+
+### Archivos eliminados (scraping)
+
+| Archivo | Por qué |
+|---|---|
+| `data/extraction/JsEvaluator.kt` | WebView ejecuta JS directamente |
+| `data/extraction/PackerUnpacker.kt` | Innecesario |
+| `data/extraction/WebViewFetcher.kt` | Reemplazado por WebView real |
+| `data/extraction/HtmlMediaExtractor.kt` | Reemplazado por JS injection |
+| `data/extraction/CandidateNormalizer.kt` | Ya no aplica |
+| `data/extraction/CandidateScorer.kt` | No hay ranking — usuario elige |
+| `data/extraction/ServerClassifier.kt` | No hay clasificación |
+| `data/extraction/EmbedResolverRegistry.kt` | WebView resuelve todo |
+| `data/extraction/ServerSpecificResolvers.kt` | Innecesario |
+| `data/extraction/UrlPolicyValidator.kt` | Usuario navega directamente |
+| `data/extraction/HttpPageFetcher.kt` | OkHttp ya no se usa para scraping |
+| `data/repository/ExtractionRepository.kt` | Sin uso |
+| `data/repository/ExtractionRepositoryImpl.kt` | Sin uso |
+| `domain/usecase/ExtractMediaFromPageUseCase.kt` | Sin uso |
+| `ui/viewmodel/ExtractMediaViewModel.kt` | Sin uso |
+| `player/WebViewMediaInterceptor.kt` | Reemplazado por WebViewVideoCapture |
+| Tests: `HtmlMediaExtractorTest.kt` | Sin sentido |
+| Tests: `EmbedResolverRegistryTest.kt` | Sin sentido |
+| Tests: `CandidateNormalizerTest.kt` | Sin sentido |
+| Tests: `UrlPolicyValidatorTest.kt` | Sin sentido |
+| Tests: `ServerClassifierTest.kt` | Sin sentido |
+
+### Orden de implementación
+
+```
+DÍA 1 — Estructura base
+├── WebViewBrowserActivity + AndroidManifest
+├── TvWebView composable (D-pad: scroll, click, back)
+├── UrlBar (◀ ▶ ⟳ + input, todos focusable con borde cyan)
+├── WebViewVideoCapture + WebViewSessionManager
+├── CapturedStream domain model + WebViewBrowserViewModel
+├── WebViewBrowserScreen completo con overlay
+├── Actualizar TVAnimeNavHost + HomeScreen sidebar
+└── Build → probar D-pad en WebView
+
+DÍA 2 — Auto-Crawler
+├── CrawlCategoryEntity + DAO
+├── Actualizar TVAnimeDatabase
+├── CrawlService (WebView visita sitio → extrae items)
+├── JsCatalogExtractor (JS injection para listados)
+├── CrawlWorker (WorkManager, cada 6h)
+├── CrawlerSettingsScreen
+└── Build → probar: activar categorías → ver contenido en Home
+
+DÍA 3 — Limpieza + integración
+├── ELIMINAR todos los archivos de scraping (21 archivos)
+├── Conectar CrawlWorker → catalog → Home
+├── DetailScreen: videoUrl viene de ContentItem, play directo
+├── Si ContentItem.videoUrl falla → ofrecer "Abrir en navegador" como fallback
+├── Limpiar imports huérfanos
+└── Build final
+
+DÍA 4 — Git commit + push
+```
+
+### D-pad en WebView TV
+
+| Tecla | Acción |
+|---|---|
+| DPAD_UP/DOWN | Scroll vertical del WebView |
+| DPAD_LEFT/RIGHT | Scroll horizontal (si existe) |
+| DPAD_CENTER/ENTER | Click en elemento enfocado |
+| BACK | goBack() si hay historial; si no → cerrar navegador |
+| TAB | Alternar foco entre UrlBar y WebView |
+
+### Compatibilidad con flujo existente
+
+| Componente existente | ¿Se usa? |
+|---|---|
+| `PlayerScreen` | ✅ Sí — reutilizado tal cual |
+| `DetailScreen` | ✅ Sí — muestra contentItem del catálogo crawleado |
+| `HomeScreen` | ✅ Sí — muestra catálogo desde Room |
+| `SettingsScreen` | ✅ Sí — se extiende con tab "Categorías" |
+| `M3uPlaylistParser` | ✅ Sí — se mantiene como alternativa |
+| `Room (ContentDao, FavoriteDao, HistoryDao)` | ✅ Sí — almacena contenido crawleado |
+| `Media3 / ExoPlayer` | ✅ Sí — reproduce streams capturados |
+| Todo el scraper | ❌ No — eliminado |
+
+---
 
 ## Bitacora de Restauracion — 2026-05-31
 

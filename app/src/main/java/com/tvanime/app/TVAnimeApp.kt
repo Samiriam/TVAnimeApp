@@ -5,7 +5,6 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.tvanime.app.data.settings.PlaylistSettingsStore
 import com.tvanime.app.data.settings.PlaylistSyncScheduler
-import com.tvanime.app.data.settings.RecurringSitesSyncScheduler
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -21,9 +20,6 @@ class TVAnimeApp : Application(), Configuration.Provider {
     @Inject
     lateinit var playlistSyncScheduler: PlaylistSyncScheduler
 
-    @Inject
-    lateinit var recurringSitesSyncScheduler: RecurringSitesSyncScheduler
-
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -34,6 +30,5 @@ class TVAnimeApp : Application(), Configuration.Provider {
         val config = playlistSettingsStore.getConfig()
         playlistSyncScheduler.schedulePeriodicSync(config)
         playlistSyncScheduler.requestImmediateSync(config, keepExisting = true)
-        recurringSitesSyncScheduler.schedulePeriodicSync()
     }
 }

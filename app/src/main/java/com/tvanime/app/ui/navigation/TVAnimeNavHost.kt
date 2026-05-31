@@ -12,11 +12,10 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.screens.HomeScreen
 import com.tvanime.app.ui.screens.DetailScreen
-import com.tvanime.app.ui.screens.ExtractMediaScreen
+import com.tvanime.app.ui.screens.WebViewBrowserScreen
 import com.tvanime.app.ui.screens.PlayerScreen
 import com.tvanime.app.ui.screens.SettingsScreen
 import com.tvanime.app.ui.viewmodel.DetailViewModel
-import com.tvanime.app.ui.viewmodel.ExtractMediaViewModel
 import com.tvanime.app.ui.viewmodel.HomeViewModel
 import com.tvanime.app.ui.viewmodel.SettingsViewModel
 import androidx.activity.compose.BackHandler
@@ -32,13 +31,6 @@ private fun parseHeadersFromRoute(decoded: String): Map<String, String> {
     }.toMap()
 }
 
-/**
- * NavHost principal de la app Android TV.
- * Rutas:
- *  - home               → catálogo principal
- *  - detail/{contentId} → detalle / botón reproducir
- *  - player/{videoUrl}  → pantalla de reproducción Media3
- */
 @Composable
 fun TVAnimeNavHost(
     navController: NavHostController = androidx.navigation.compose.rememberNavController()
@@ -47,14 +39,13 @@ fun TVAnimeNavHost(
         navController = navController,
         startDestination = "home"
     ) {
-        // ── HOME ──────────────────────────────────────────────────────────
         composable("home") {
             val vm: HomeViewModel = hiltViewModel()
             val uiState by vm.uiState.collectAsState()
 
             HomeScreen(
                 catalog = uiState.catalog,
-                onOpenExtractor = { navController.navigate("extract") },
+                onOpenBrowser = { navController.navigate("browser") },
                 onOpenSettings = { navController.navigate("settings") },
                 onContentSelected = { item: ContentItem ->
                     navController.navigate("detail/${Uri.encode(item.id)}")
@@ -62,27 +53,18 @@ fun TVAnimeNavHost(
             )
         }
 
-        composable("extract") {
-            val vm: ExtractMediaViewModel = hiltViewModel()
-            val uiState by vm.uiState.collectAsState()
-
+        composable("browser") {
             BackHandler { navController.popBackStack() }
 
-            ExtractMediaScreen(
-                uiState = uiState,
+            WebViewBrowserScreen(
+                initialUrl = null,
                 onBack = { navController.popBackStack() },
-                onUrlChanged = vm::updatePageUrl,
-                onExtract = vm::extract,
-                onPlayCandidate = { candidateUrl, headers ->
+                onPlayVideo = { videoUrl, headers ->
                     val headersParam = if (headers.isNotEmpty()) {
                         "&headers=" + Uri.encode(headers.entries.joinToString(",") { "${it.key}=${it.value}" })
                     } else ""
-                    navController.navigate("player/${Uri.encode(candidateUrl)}$headersParam")
-                },
-                onSearchQueryChanged = vm::updateSearchQuery,
-                onSiteSelected = vm::selectSite,
-                onAutoAnalyze = vm::autoAnalyzePopularSites,
-                onToggleSuggestions = vm::toggleSuggestions
+                    navController.navigate("player/${Uri.encode(videoUrl)}$headersParam")
+                }
             )
         }
 
@@ -98,12 +80,10 @@ fun TVAnimeNavHost(
                 onSelectDemo = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
                 onSelectRemoteUrl = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
                 onRemoteUrlChanged = vm::updateRemoteUrl,
-                onRecurringSitesChanged = vm::updateRecurringSites,
                 onSave = vm::save
             )
         }
 
-        // ── DETAIL ────────────────────────────────────────────────────────
         composable(
             route = "detail/{contentId}",
             arguments = listOf(navArgument("contentId") { type = NavType.StringType })
@@ -111,7 +91,6 @@ fun TVAnimeNavHost(
             val vm: DetailViewModel = hiltViewModel()
             val uiState by vm.uiState.collectAsState()
 
-            // Botón atrás por hardware / control remoto
             BackHandler { navController.popBackStack() }
 
             DetailScreen(
@@ -133,7 +112,6 @@ fun TVAnimeNavHost(
             )
         }
 
-        // ── PLAYER ────────────────────────────────────────────────────────
         composable("player/{videoUrl}") { backStackEntry ->
             val rawArg = backStackEntry.arguments?.getString("videoUrl").orEmpty()
             val decoded = Uri.decode(rawArg)

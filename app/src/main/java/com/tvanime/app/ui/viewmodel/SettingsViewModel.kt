@@ -6,8 +6,6 @@ import com.tvanime.app.data.settings.PlaylistSettingsStore
 import com.tvanime.app.data.settings.PlaylistSource
 import com.tvanime.app.data.settings.PlaylistSyncConfig
 import com.tvanime.app.data.settings.PlaylistSyncScheduler
-import com.tvanime.app.data.settings.RecurringSitesStore
-import com.tvanime.app.data.settings.RecurringSitesSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +16,6 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val selectedSource: PlaylistSource = PlaylistSource.DEMO,
     val remoteUrl: String = "",
-    val recurringSitesText: String = "",
     val isSaving: Boolean = false,
     val message: String? = null,
     val error: String? = null
@@ -27,9 +24,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsStore: PlaylistSettingsStore,
-    private val syncScheduler: PlaylistSyncScheduler,
-    private val recurringSitesStore: RecurringSitesStore,
-    private val recurringSitesSyncScheduler: RecurringSitesSyncScheduler
+    private val syncScheduler: PlaylistSyncScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -39,8 +34,7 @@ class SettingsViewModel @Inject constructor(
         val config = settingsStore.getConfig()
         _uiState.value = _uiState.value.copy(
             selectedSource = config.source,
-            remoteUrl = config.remoteUrl,
-            recurringSitesText = recurringSitesStore.getRawText()
+            remoteUrl = config.remoteUrl
         )
     }
 
@@ -50,10 +44,6 @@ class SettingsViewModel @Inject constructor(
 
     fun updateRemoteUrl(value: String) {
         _uiState.value = _uiState.value.copy(remoteUrl = value, error = null, message = null)
-    }
-
-    fun updateRecurringSites(value: String) {
-        _uiState.value = _uiState.value.copy(recurringSitesText = value, error = null, message = null)
     }
 
     fun save() {
@@ -72,15 +62,12 @@ class SettingsViewModel @Inject constructor(
             )
 
             settingsStore.saveConfig(config)
-            recurringSitesStore.saveRawText(state.recurringSitesText)
             syncScheduler.schedulePeriodicSync(config)
             syncScheduler.requestImmediateSync(config)
-            recurringSitesSyncScheduler.schedulePeriodicSync()
-            recurringSitesSyncScheduler.requestImmediateSync()
 
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
-                message = "Configuracion guardada. Sincronizacion M3U y sitios recurrentes lanzada."
+                message = "Configuracion guardada. Sincronizacion M3U iniciada."
             )
         }
     }
