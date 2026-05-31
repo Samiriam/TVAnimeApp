@@ -7,7 +7,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +38,7 @@ import androidx.media3.ui.PlayerView
 import com.tvanime.app.data.settings.PlaylistSource
 import com.tvanime.app.domain.model.ContentItem
 import com.tvanime.app.ui.theme.*
+import com.tvanime.app.ui.viewmodel.CrawlerUiState
 import com.tvanime.app.ui.viewmodel.SettingsUiState
 import androidx.compose.foundation.BorderStroke
 
@@ -219,10 +222,12 @@ private fun TvIconButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics
 
 @Composable
 fun SettingsScreen(
-    uiState: SettingsUiState, onBack: () -> Unit, onSelectDemo: () -> Unit, onSelectRemoteUrl: () -> Unit,
-    onRemoteUrlChanged: (String) -> Unit, onSave: () -> Unit
+    uiState: SettingsUiState, crawlerState: CrawlerUiState, onBack: () -> Unit,
+    onSelectDemo: () -> Unit, onSelectRemoteUrl: () -> Unit,
+    onRemoteUrlChanged: (String) -> Unit, onSave: () -> Unit,
+    onToggleCategory: (String, Boolean) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp).verticalScroll(rememberScrollState())) {
         TvIconButton(onClick = onBack, icon = Icons.AutoMirrored.Filled.ArrowBack)
         Spacer(Modifier.height(20.dp))
         Text("Ajustes", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
@@ -251,6 +256,39 @@ fun SettingsScreen(
                         }
                     )
                 }
+            }
+        }
+        Spacer(Modifier.height(32.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(32.dp))
+        Text("Categorias para crawler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(8.dp))
+        Text("Selecciona las categorias que quieres crawler automaticamente cada 6 horas.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(16.dp))
+        crawlerState.categories.forEach { cat ->
+            val catConfig = com.tvanime.app.domain.model.CategoryConfig.DEFAULT.find { it.category == cat.category }
+            var focused by remember { mutableStateOf(false) }
+            val label = catConfig?.label ?: cat.category
+            val icon = when (cat.category) {
+                "anime" -> Icons.Default.Star
+                "movies" -> Icons.Default.Star
+                "series" -> Icons.Default.Star
+                "documentaries" -> Icons.Default.Star
+                else -> Icons.Default.Star
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp).focusable().onFocusChanged { focused = it.isFocused },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(icon, null, Modifier.size(24.dp), tint = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal)
+                }
+                Switch(
+                    checked = cat.enabled,
+                    onCheckedChange = { onToggleCategory(cat.category, it) },
+                    modifier = Modifier.scale(if (focused) 1.2f else 1f)
+                )
             }
         }
         Spacer(Modifier.height(24.dp))

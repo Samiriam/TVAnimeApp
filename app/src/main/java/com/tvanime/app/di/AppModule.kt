@@ -3,6 +3,7 @@ package com.tvanime.app.di
 import android.content.Context
 import androidx.work.WorkManager
 import com.tvanime.app.data.local.dao.ContentDao
+import com.tvanime.app.data.local.dao.CrawlCategoryDao
 import com.tvanime.app.data.local.dao.FavoriteDao
 import com.tvanime.app.data.local.dao.HistoryDao
 import com.tvanime.app.data.local.TVAnimeDatabase
@@ -83,6 +84,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFavoritesDao(db: TVAnimeDatabase) = db.favoriteDao()
+
+    @Provides
+    @Singleton
+    fun provideCrawlCategoryDao(db: TVAnimeDatabase) = db.crawlCategoryDao()
 
     @Provides
     @Singleton

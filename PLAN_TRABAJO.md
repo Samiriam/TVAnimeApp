@@ -895,3 +895,124 @@ Se analizo en profundidad los 3 repos de referencia y se encontro que el enfoque
 - Si sitios con Cloudflare siguen fallando con WebView, evaluar servicio auxiliar con Puppeteer
 - Agregar extractores especificos por dominio para sitios priorizados por el usuario
 - Probar contra URLs reales de los sitios que el usuario intenta analizar
+
+## Revision Corta De Estado Actual - 2026-05-31
+
+### Situacion observada
+
+La direccion del proyecto cambio desde scraping heuristico con `OkHttp + regex` hacia un navegador `WebView` integrado en Android TV, con captura de streams durante la navegacion del usuario y un plan de auto-crawler por categorias.
+
+El cambio conceptual es coherente con el problema real y ya fue consolidado en el repo remoto mediante `482b805 feat: WebView browser for TV with video capture overlay`. La ruta `browser`, la captura de streams y el overlay ya forman parte del enfoque activo del proyecto.
+
+### Estado real verificado en esta revision
+
+| Item | Estado verificado |
+|---|---|
+| Branch local | `main` alineada con `origin/main` en `482b805` |
+| Arbol de trabajo | Solo este `PLAN_TRABAJO.md` queda modificado localmente |
+| Enfoque activo | WebView Browser + captura de video + overlay |
+| Compilacion `compileDebugKotlin` | **Falla** |
+| Push remoto | **Confirmado** |
+| Tests unitarios | No se validaron como aprobacion final en esta revision local |
+
+### Fallos pendientes detectados
+
+| Prioridad | Area | Problema | Evidencia |
+|---|---|---|---|
+| Alta | Build | `compileDebugKotlin` falla por referencias rotas en UI y componentes heredados | `CandidateCard.kt` con `DetectedMedia` no resuelto y referencia `it` invalida |
+| Media | Limpieza | Aun quedan componentes del flujo antiguo conviviendo con la estrategia WebView | `CandidateCard.kt` sigue dependiendo del modelo eliminado `DetectedMedia` |
+| Media | Seguridad | Revisar y retirar cualquier pieza vieja insegura si todavia sigue activa o reachable en el arbol | Confirmar que el flujo WebView no dependa de clases viejas de scraping |
+| Media | UX TV | El foco D-pad fue mejorado, pero falta prueba real en Android TV o emulador para confirmar navegacion, scroll y overlay | Sin validacion manual cerrada |
+| Media | Crawler | El auto-crawler esta planificado pero no demostrado como funcional de punta a punta | Falta confirmar guardado en Room y reproduccion desde catalogo |
+| Alta | Documentacion | La informacion del repositorio esta totalmente desactualizada y todavia apunta al enfoque anterior de scraping/M3U como flujo principal | `README.md`, secciones historicas de `PLAN_TRABAJO.md` y descripciones del producto ya no representan la arquitectura WebView actual |
+
+### Hitos ya logrados
+
+1. Cambio de direccion del producto hacia `WebViewBrowserScreen` como flujo principal.
+2. Publicacion del cambio en remoto mediante `482b805`.
+3. Eliminacion del flujo `extract` del `NavHost` principal y reemplazo por `browser`.
+4. Integracion base de `WebViewVideoCapture`, `WebViewSessionManager`, `TvWebView`, `UrlBar` y `VideoCaptureOverlay`.
+
+### Hitos pendientes reales
+
+#### Hito 1 - Recuperar compilacion limpia
+
+Objetivo:
+Dejar la rama WebView compilando sin errores locales.
+
+Tareas:
+
+1. Corregir `CandidateCard.kt` para que no use `DetectedMedia` si ese modelo ya fue eliminado del flujo activo.
+2. Corregir la referencia invalida `it` reportada por el compilador.
+3. Ejecutar `compileDebugKotlin` hasta dejarlo limpio.
+
+Criterio de salida:
+`compileDebugKotlin` exitoso.
+
+#### Hito 2 - Validar flujo WebView real
+
+Objetivo:
+Confirmar que el nuevo enfoque no solo existe en codigo, sino que funciona en TV.
+
+Tareas:
+
+1. Abrir `Navegador Web` desde Home.
+2. Cargar un sitio configurado.
+3. Detectar al menos un stream reproducible.
+4. Mostrar `VideoCaptureOverlay`.
+5. Reproducir en `PlayerScreen` con headers/referer si corresponde.
+
+Criterio de salida:
+Flujo real: Home -> Navegador Web -> deteccion -> overlay -> reproductor.
+
+#### Hito 3 - Validar experiencia Android TV
+
+Objetivo:
+Confirmar navegacion usable con control remoto.
+
+Tareas:
+
+1. Probar foco visible en botones, lista de sitios, barra URL y overlay.
+2. Verificar scroll D-pad dentro del WebView.
+3. Probar `BACK`, `ENTER` y navegacion entre controles.
+4. Verificar que el overlay no tape interacciones criticas.
+
+Criterio de salida:
+Uso aceptable con control remoto en emulador o dispositivo Android TV.
+
+#### Hito 4 - Decidir el destino del auto-crawler
+
+Objetivo:
+No dejar el crawler como promesa difusa dentro del cambio de arquitectura.
+
+Tareas:
+
+1. Confirmar si el crawler entra en esta etapa o pasa a backlog.
+2. Si entra: probar extraccion de items, detalle y `videoUrl` resuelto.
+3. Si no entra: marcarlo como fase posterior y quitar dependencias parciales del flujo actual.
+
+Criterio de salida:
+Crawler implementado y probado, o formalmente postergado sin contaminar el flujo base.
+
+#### Hito 5 - Actualizar documentacion del repositorio
+
+Objetivo:
+Hacer que el repositorio describa el producto actual y no la etapa anterior.
+
+Tareas:
+
+1. Actualizar `README.md` para reflejar que el flujo principal ahora es `WebView Browser + captura de streams + PlayerScreen`.
+2. Mover a seccion historica o eliminar del `PLAN_TRABAJO.md` todo lo que describa como vigente el antiguo flujo de scraping heuristico si ya no aplica.
+3. Revisar descripciones de arquitectura, objetivos y funcionalidades para que no presenten como actual el enfoque anterior.
+4. Dejar claro que M3U queda como alternativa y no necesariamente como centro del producto, si esa sigue siendo la decision del programador y del usuario.
+
+Criterio de salida:
+El repositorio explica correctamente el estado actual del producto y su arquitectura vigente.
+
+### Orden de correccion recomendado desde este punto
+
+1. Build roto (`CandidateCard.kt`, `VideoCaptureOverlay.kt`, imports y modelos).
+2. Flujo WebView minimo funcional.
+3. Validacion manual Android TV.
+4. Decision final sobre auto-crawler.
+5. Actualizacion de documentacion del repositorio.

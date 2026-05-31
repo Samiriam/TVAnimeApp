@@ -15,6 +15,7 @@ import com.tvanime.app.ui.screens.DetailScreen
 import com.tvanime.app.ui.screens.WebViewBrowserScreen
 import com.tvanime.app.ui.screens.PlayerScreen
 import com.tvanime.app.ui.screens.SettingsScreen
+import com.tvanime.app.ui.viewmodel.CrawlerViewModel
 import com.tvanime.app.ui.viewmodel.DetailViewModel
 import com.tvanime.app.ui.viewmodel.HomeViewModel
 import com.tvanime.app.ui.viewmodel.SettingsViewModel
@@ -69,18 +70,22 @@ fun TVAnimeNavHost(
         }
 
         composable("settings") {
-            val vm: SettingsViewModel = hiltViewModel()
-            val uiState by vm.uiState.collectAsState()
+            val settingsVm: SettingsViewModel = hiltViewModel()
+            val crawlerVm: CrawlerViewModel = hiltViewModel()
+            val uiState by settingsVm.uiState.collectAsState()
+            val crawlerState by crawlerVm.uiState.collectAsState()
 
             BackHandler { navController.popBackStack() }
 
             SettingsScreen(
                 uiState = uiState,
+                crawlerState = crawlerState,
                 onBack = { navController.popBackStack() },
-                onSelectDemo = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
-                onSelectRemoteUrl = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
-                onRemoteUrlChanged = vm::updateRemoteUrl,
-                onSave = vm::save
+                onSelectDemo = { settingsVm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
+                onSelectRemoteUrl = { settingsVm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
+                onRemoteUrlChanged = settingsVm::updateRemoteUrl,
+                onSave = settingsVm::save,
+                onToggleCategory = crawlerVm::toggleCategory
             )
         }
 
