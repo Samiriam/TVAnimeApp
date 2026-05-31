@@ -5,28 +5,38 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val PurpleDark  = Color(0xFF6D28D9)
-private val Background  = Color(0xFF08080E)
-private val Surface     = Color(0xFF141420)
+private val Primary    = Color(0xFF7C5CFC)
+private val OnPrimary  = Color(0xFFF5F3FF)
+private val Secondary  = Color(0xFF2DD4BF)
+private val Background = Color(0xFF0B0B12)
+private val Surface    = Color(0xFF151522)
+private val SurfaceDim = Color(0xFF1E1E30)
+private val OnBg       = Color(0xFFE4E2F0)
+private val OnSurface  = Color(0xFFD4D2E8)
+private val Outline    = Color(0xFF3A3858)
+private val Error      = Color(0xFFEF4444)
 
-private val DarkColors = darkColorScheme(
-    primary   = PurpleDark,
-    secondary = PurpleDark,
-    background = Background,
-    surface   = Surface,
-    onPrimary   = Color.White,
-    onSecondary = Color.White,
-    onBackground = Color(0xFFE5E3FF),
-    onSurface   = Color.White,
-    surfaceVariant = Color(0xFF202033),
-    onSurfaceVariant = Color(0xFFE5E3FF),
-    outline = Color(0xFF77709A)
+private val TVColors = darkColorScheme(
+    primary          = Primary,
+    onPrimary        = OnPrimary,
+    secondary        = Secondary,
+    onSecondary      = Color(0xFF0D0D18),
+    background       = Background,
+    onBackground     = OnBg,
+    surface          = Surface,
+    onSurface        = OnSurface,
+    surfaceVariant   = SurfaceDim,
+    onSurfaceVariant = Color(0xFF9A98B4),
+    outline          = Outline,
+    outlineVariant   = Color(0xFF25253A),
+    error            = Error,
+    onError          = Color.White
 )
 
 @Composable
 fun TVAnimeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = DarkColors,
+        colorScheme = TVColors,
         content = content
     )
 }
