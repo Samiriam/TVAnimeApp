@@ -447,6 +447,7 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `AppModule.kt`, `libs.versions.toml`, `app/build.gradle.kts`, `local.properties`, `gradle.properties` | Se corrigio la configuracion de Hilt/WorkManager, binding del parser y el entorno local de build para compilar el APK de prueba | `assembleDebug` exitoso | ✅ |
 | 2026-05-30 | `RemoteContentItem.kt`, `UserAgentInterceptor.kt`, `SyncCatalogUseCase.kt`, `PlayerConfig.kt`, `ContentCard.kt` | Se corrigieron errores previos de compilacion Kotlin/KSP que bloqueaban el build del proyecto | `assembleDebug` exitoso | ✅ |
 | 2026-05-30 | `data/extraction/*`, `data/repository/ExtractionRepository*`, `domain/model/DetectedMedia.kt`, `domain/usecase/ExtractMediaFromPageUseCase.kt`, `ui/viewmodel/ExtractMediaViewModel.kt`, `ui/screens/Screens.kt`, `ui/navigation/TVAnimeNavHost.kt` | Se integro el primer extractor HTML generico con validacion https, bloqueo basico de hosts locales/privados, deteccion de HLS/MP4/audio/embed y pantalla TV-first para analizar URL | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
+| 2026-05-30 | `data/extraction/CandidateNormalizer.kt`, `data/extraction/ServerClassifier.kt`, `domain/model/DetectedMedia.kt`, `HtmlMediaExtractor.kt`, tests de extraction | Se adapto el patron de `anime1v-api`/Balandro para normalizar candidatos, clasificar servidores, limpiar escapes/base64 y enriquecer `DetectedMedia` con server, direct/resolver, headers, prioridad y diagnostico | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 
 ## Pruebas Y Builds
 
@@ -455,6 +456,8 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso | `app/build/outputs/apk/debug/app-debug.apk` (~13.5 MB, generado el 2026-05-30) | Probar instalacion y flujo en Android TV real o emulador |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Tests unitarios exitosos para extractor HTML y validador URL | No aplica | Agregar mas fixtures por dominio autorizado |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con scraping generico integrado | `app/build/outputs/apk/debug/app-debug.apk` (~13.7 MB, generado el 2026-05-30) | Probar pantalla Analizar URL en Android TV real o emulador |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Tests unitarios exitosos para normalizacion de candidatos, clasificacion de servidores, extractor HTML y validador URL | No aplica | Agregar fixtures reales por servidor |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras `CandidateNormalizer` + `ServerClassifier` | `app/build/outputs/apk/debug/app-debug.apk` | Probar en Android TV/emulador |
 
 ## Estado Actual
 
@@ -466,17 +469,22 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 - Sincronizacion inmediata y periodica con WorkManager al guardar ajustes y al iniciar la app.
 - Pantalla `Analizar URL` disponible desde Home.
 - Extractor HTML generico detecta candidatos `.m3u8`, `.mp4`, audio y `iframe` declarados en HTML publico.
+- `CandidateNormalizer` limpia escapes comunes (`\u0026`, `&amp;`, `%2F`) y base64 simple antes de clasificar.
+- `ServerClassifier` identifica servidores/patrones iniciales: HLS, directo, JWPlayer, JWP, Dailymotion, Blogger, Archive.org, Ok.ru, MP4Upload, YourUpload, Streamtape, Streamwish/Filemoon, VOE, Mixdrop y Doodstream.
+- `DetectedMedia` ya conserva metadatos para resolvers: server, headers, prioridad, diagnostico y si requiere resolucion.
 
 ### No Funciona
 
 - No se ejecuto aun prueba manual en Android TV real o emulador durante esta sesion.
 - El extractor especializado por dominio todavia no existe; la implementacion actual es generica.
+- Aun no hay `EmbedResolverRegistry`; los candidatos con `requiresResolver=true` se clasifican pero todavia no se convierten a URL final.
 
 ### Falta Realizar
 
 - Instalar el APK en emulador/dispositivo Android TV y verificar Home, Ajustes, sync demo y reproduccion.
 - Probar `Analizar URL` contra una pagina publica autorizada con HLS/MP4 directo.
 - Definir el primer dominio autorizado para crear extractor especializado con fixtures versionados.
+- Implementar `EmbedResolverRegistry` con resolvers `directo`, `m3u8hls`, `jwplayer/jwp`, `dailymotion`, `blogger` y `archiveorg`.
 
 ## Decisiones Pendientes Antes De Implementar
 
@@ -485,3 +493,73 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 3. Definir si los candidatos detectados se reproducen directamente o se guardan temporalmente en Room.
 4. Definir politica de cache y expiracion.
 5. Decidir si algun dominio autorizado requiere un servicio auxiliar en una fase posterior.
+
+## Revision Profunda De Referencias Para Scraping
+
+Fecha: `2026-05-30`
+
+Repositorios revisados en temporal:
+
+- `https://github.com/FxxMorgan/anime1v-api.git`
+- `https://github.com/pedroparkeralrescate-code/balandro-stremio.git`
+
+### Piezas de `anime1v-api` que conviene adaptar pronto
+
+| Pieza observada | Archivo fuente | Adaptacion propuesta a TVAnimeApp | Prioridad |
+|---|---|---|---|
+| Registro multi-proveedor por dominio | `src/services/anime.service.js` | Crear `ExtractorRegistry` con `id`, `label`, `domains` y extractor asociado | Alta |
+| Seleccion automatica por URL | `findProviderForUrl()` | Detectar extractor por host de la URL ingresada antes de usar generico | Alta |
+| Fallback multi-proveedor | `searchAnime()` | Permitir probar extractores compatibles en orden cuando el dominio no sea concluyente | Media |
+| Normalizacion de servidor | `normalizeServerName()` / `SERVER_PATTERNS` | Crear `ServerClassifier` para identificar HLS, MP4Upload, Filemoon, Streamwish, etc. | Alta |
+| Variantes SUB/DUB | `parseVariantContainer()` / `getEpisodeLinks()` | Agregar campos `variant`, `language` o `audioType` a `DetectedMedia` | Media |
+| Separacion stream/download | `collector.stream` y `collector.download` | Diferenciar candidatos reproducibles de candidatos descargables/no reproducibles | Alta |
+| Deduplicacion por URL | `pushDeduped()` | Reemplazar dedupe simple por dedupe normalizado sin query ruidosa cuando aplique | Alta |
+| Filtro anti-fake | `isLikelyVideoUrl()` | Bloquear candidatos de analytics, placeholders, BigBuckBunny/test-videos excepto modo demo | Alta |
+| Resolucion por host | `resolveEmbedUrl()` y resolvers concretos | Crear `EmbedResolverRegistry` con resolvers por host, comenzando por patrones HTML simples | Alta |
+| Headers y referer por candidato | `fetchHtmlWithHeaders()` / `getRefererForUrl()` | Guardar headers requeridos por candidato y pasarlos a Media3 cuando aplique | Alta |
+| Errores tipados | `ApiError` | Crear `ExtractionError` con codigos internos para UI y diagnostico | Media |
+| Modo debug | `DEBUG_DOWNLOAD` / `debugLog()` | Agregar modo diagnostico local sin exponer URLs completas ni tokens | Media |
+
+### Piezas de `balandro-stremio` que conviene adaptar pronto
+
+| Pieza observada | Archivo fuente | Adaptacion propuesta a TVAnimeApp | Prioridad |
+|---|---|---|---|
+| Adapter entre modelos | `addon.py` (`item_to_meta`) | Crear capa `ExtractionCandidateMapper` para convertir hallazgos a items de UI/player/catalogo | Alta |
+| Serializacion stateless | `serialize_item()` / `deserialize_item()` | Guardar estado temporal de candidato como JSON/URI seguro para navegar sin persistir todo en Room | Media |
+| Carga dinamica de canales | `load_channel()` | Inspirar `ExtractorRegistry` modular, aunque en Android se usara registro estatico/inyeccion Hilt | Alta |
+| Limpieza de texto Kodi | `clean_kodi_formatting()` | Agregar limpiador de titulos/descripciones para resultados con tags `[COLOR]`, `[B]`, `[CR]` | Media |
+| Resolucion canal -> server -> URL final | `resolve_video_urls()` | Dividir el flujo Android en `PageExtractor -> ServerDetector -> EmbedResolver -> PlayableCandidate` | Alta |
+| Server tools por patrones JSON | `servertools.findvideos()` y `servers/*.json` | Crear una tabla local de patrones de servidor para detectar embeds mas alla de iframe/src | Alta |
+| Resolvers individuales por servidor | `balandro_src/servers/*.py` | Priorizar resolvers Android para `directo`, `m3u8hls`, `jwplayer`, `jwp`, `dailymotion`, `blogger`, `archiveorg` | Alta |
+| Busqueda en canales priorizados | `main.py` (`channels_to_check`) | Agregar orden configurable de fuentes/extractores para pruebas personales | Media |
+| Fallback por titulo alternativo | `main.py` titulo ES/original | En fase de catalogo, probar busqueda por titulo normalizado y titulo original | Baja |
+| Preservar headers personalizados | `patcher.py` | Soportar `Referer`, `User-Agent` y cookies por resolver cuando sea necesario | Alta |
+
+### Backlog tecnico enfocado en pruebas amplias
+
+1. Crear `ExtractorRegistry` con extractor generico + extractores especificos inspirados en dominios/patrones de `anime1v-api` y Balandro.
+2. Crear `EmbedResolverRegistry` separado del extractor de pagina.
+3. Implementar `ServerClassifier` con patrones de host/URL: HLS, JWPlayer, JWP, MP4Upload, YourUpload, Streamtape, Streamwish/Filemoon, Dailymotion, Blogger, Archive.org, Ok.ru, directo.
+4. Ampliar `DetectedMedia` con `server`, `quality`, `variant`, `language`, `isDirect`, `requiresResolver`, `headers`, `priority` y `diagnostics`.
+5. Implementar `CandidateNormalizer` con limpieza de escapes HTML, `\u0026`, `&amp;`, `%2F`, base64 simple y URLs relativas.
+6. Agregar patrones de extraccion JS sin navegador: `file:`, `sources:`, `player.setup`, `jwplayer().setup`, `data-src`, `data-file`, `window.location.href` y JSON embebido.
+7. Agregar resolvers simples sin navegador para servidores que exponen HTML/JSON suficiente.
+8. Agregar WebView resolver opcional solo para pruebas personales cuando el HTML estatico no alcance, con allowlist y timeout estricto.
+9. Agregar pantalla de diagnostico de scraping: extractor usado, servidor detectado, cantidad de candidatos, errores y tiempos.
+10. Agregar fixtures copiados/simplificados desde HTML real de prueba para no depender siempre de la red.
+
+### Orden recomendado de implementacion
+
+1. `CandidateNormalizer` + `ServerClassifier`.
+2. `ExtractorRegistry` + contrato de extractor especifico.
+3. `EmbedResolverRegistry` con resolvers `directo`, `m3u8hls`, `jwplayer/jwp`, `dailymotion`, `blogger`, `archiveorg`.
+4. Ampliar UI de resultados para mostrar server, calidad, variante y diagnostico.
+5. WebView resolver experimental para pruebas personales, apagado por defecto.
+6. Catalogo temporal de resultados detectados y opcion de guardar como contenido local.
+
+### Riesgos tecnicos aceptados para prueba personal
+
+- Se puede experimentar con mas resolvers y heuristicas agresivas, siempre aisladas por host y con opcion de desactivar.
+- No copiar masivamente logica de terceros dentro del APK sin adaptar; preferir reimplementar patrones pequenos y verificables.
+- No introducir FFmpeg dentro del APK en esta fase; priorizar reproduccion directa Media3.
+- No usar Puppeteer dentro del APK; si se necesita navegador, usar WebView Android acotado o un servicio auxiliar.

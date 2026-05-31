@@ -7,7 +7,9 @@ import org.junit.Test
 
 class HtmlMediaExtractorTest {
 
-    private val extractor = HtmlMediaExtractor()
+    private val serverClassifier = ServerClassifier()
+    private val normalizer = CandidateNormalizer(serverClassifier)
+    private val extractor = HtmlMediaExtractor(normalizer)
 
     @Test
     fun extractsPlayableCandidatesAndDeduplicates() {
@@ -29,6 +31,7 @@ class HtmlMediaExtractorTest {
         assertEquals(3, result.candidates.size)
         assertTrue(result.candidates.any { it.url == "https://example.com/media/video.mp4" && it.format == "mp4" })
         assertTrue(result.candidates.any { it.url == "https://cdn.example.com/stream.m3u8" && it.format == "hls" })
-        assertTrue(result.candidates.any { it.format == "embed" })
+        assertTrue(result.candidates.any { it.format == "embed" && it.requiresResolver })
+        assertTrue(result.candidates.first().priority <= result.candidates.last().priority)
     }
 }

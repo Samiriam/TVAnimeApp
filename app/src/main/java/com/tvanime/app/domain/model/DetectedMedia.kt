@@ -6,7 +6,16 @@ data class DetectedMedia(
     val format: String,
     val sourceName: String,
     val referer: String,
-    val label: String = ""
+    val label: String = "",
+    val server: String = "directo",
+    val quality: String? = null,
+    val variant: String? = null,
+    val language: String? = null,
+    val isDirect: Boolean = true,
+    val requiresResolver: Boolean = false,
+    val headers: Map<String, String> = emptyMap(),
+    val priority: Int = 100,
+    val diagnostics: List<String> = emptyList()
 )
 
 data class ExtractionResult(
