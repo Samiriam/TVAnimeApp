@@ -606,3 +606,56 @@ Repositorios revisados en temporal:
 - No copiar masivamente logica de terceros dentro del APK sin adaptar; preferir reimplementar patrones pequenos y verificables.
 - No introducir FFmpeg dentro del APK en esta fase; priorizar reproduccion directa Media3.
 - No usar Puppeteer dentro del APK; si se necesita navegador, usar WebView Android acotado o un servicio auxiliar.
+
+## Bitacora de Restauracion — 2026-05-31
+
+### Problema reportado por el usuario
+
+El usuario indico que:
+1. El scraping no detecta nada en ninguna pagina
+2. Los 3 repos de referencia (anime1v-api, balandro, NebulaStreams) son completamente funcionales con betas publicas
+3. El disenio frontal esta mejorado pero detraz sigue igual: no funcional
+4. El indicador de foco/puntero es invisible en la pantalla de seleccion de lista
+5. Botones como "volver atras" y "revisar" estan full color pero nunca se ve cual esta realmente seleccionado
+
+### Diagnostico raiz — Scraping
+
+Se analizo en profundidad los 3 repos de referencia y se encontro que el enfoque de OkHttpClient + regex es fundamentalmente insuficiente para sitios de anime modernos:
+
+| Nuestro enfoque | Enfoque de los repos funcionales | Por falla |
+|---|---|---|
+| Regex sobre HTML crudo | Evaluacion de variables JS (`var videos = {...}`) | Los datos estan en objetos JS, no HTML |
+| Un solo fetch HTTP | Multi-step: pagina -> iframe -> iframe -> video | URLs de video estan detras de multiples capas |
+| Sin ejecucion JS | `vm.runInNewContext`, js2py, Puppeteer | Datos en `<script>` tags que requieren ejecucion |
+| Sin manejo Cloudflare | Puppeteer fallback, FlareSolverr | La mayoria devuelve 403 sin navegador |
+| Regex generico por "tipo de servidor" | Archivo Python/JS por servidor con logica custom | Cada embed host tiene ofuscacion unica |
+| Sin desencriptacion | Base64 + AES + strings invertidas + `(p,a,c,k,e,d)` | URLs de video estan encriptadas/ofuscadas |
+| Sin llamadas AJAX | Site-specific APIs (`/ajax/`, `enc-dec.app`) | Los datos se obtienen via APIs, no HTML |
+
+### Soluciones implementadas
+
+| Componente | Descripcion | Efecto |
+|---|---|---|
+| `JsEvaluator.kt` | Evaluador de variables JS: `var videos`, `var servers`, JSON embebido, datos Svelte, `player.setup`, `sources` arrays, `atob()`/base64, `window.location`, `decodeURIComponent`, `unescape` | Extrae datos que estaban ocultos en `<script>` tags |
+| `PackerUnpacker.kt` | Desempaquetador Dean Edwards `(p,a,c,k,e,d)` para JS ofuscado | Desencripta codigo ofuscado de servidores embed |
+| `WebViewFetcher.kt` | Android WebView como fallback para Cloudflare/JS-heavy pages | Resuelve paginas que retornan 403/vacio con OkHttpClient |
+| `ExtractionRepositoryImpl.kt` | Flujo multi-step: OkHttp → JS eval → WebView fallback | Si un metodo falla, intenta el siguiente automaticamente |
+| `HtmlMediaExtractor.kt` | Agregado: JSON-LD, og:video, sources arrays, decodeURIComponent, base64 standalone, data-src base64, window.location patterns | Captura muchas mas formas de URL embebidas |
+| `EmbedResolverRegistry.kt` | Resolucion multi-step con JS evaluator + packer unpacker + iframes anidados recursivos (depth=2) | Resuelve embeds que requieren ejecutar JS y seguir redirecciones |
+| UI Focus | Bordes de 5dp con gradiente cyan brillante (#00CED1 → #47EAED), background semi-transparente al foco, texto Bold al foco, player controls con bordes brillosos sobre fondo oscuro | Indicador de foco visible a 3m de distancia en TV |
+
+### Build y tests
+
+| Comando | Resultado |
+|---|---|
+| `assembleDebug` | Exitoso |
+| `testDebugUnitTest` | 25/25 pasando |
+| APK | `app/build/outputs/apk/debug/app-debug.apk` |
+
+### Pendiente
+
+- Probar el APK en dispositivo/emulador Android TV real
+- Verificar que WebView funcione correctamente en Android TV
+- Si sitios con Cloudflare siguen fallando con WebView, evaluar servicio auxiliar con Puppeteer
+- Agregar extractores especificos por dominio para sitios priorizados por el usuario
+- Probar contra URLs reales de los sitios que el usuario intenta analizar
