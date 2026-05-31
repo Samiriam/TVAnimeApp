@@ -81,6 +81,7 @@ fun TVAnimeNavHost(
                 onSelectDemo = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
                 onSelectRemoteUrl = { vm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
                 onRemoteUrlChanged = vm::updateRemoteUrl,
+                onRecurringSitesChanged = vm::updateRecurringSites,
                 onSave = vm::save
             )
         }

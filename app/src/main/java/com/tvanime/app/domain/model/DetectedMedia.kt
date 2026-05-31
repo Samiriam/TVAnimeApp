@@ -24,3 +24,9 @@ data class ExtractionResult(
     val title: String,
     val candidates: List<DetectedMedia>
 )
+
+data class RecurringSite(
+    val url: String,
+    val category: String = "Recurrente",
+    val enabled: Boolean = true
+)

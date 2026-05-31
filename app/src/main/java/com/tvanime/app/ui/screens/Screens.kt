@@ -164,9 +164,15 @@ fun ExtractMediaScreen(
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Text(
-                                text = "${candidate.mediaType.uppercase()} · ${candidate.format.uppercase()}",
+                                text = "${candidate.mediaType.uppercase()} · ${candidate.format.uppercase()} · ${candidate.server}",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color.White
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = if (candidate.requiresResolver) "Requiere resolver" else "Directo · prioridad ${candidate.priority}",
+                                color = Color.White.copy(alpha = 0.65f),
+                                maxLines = 1
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(candidate.url, color = Color.White.copy(alpha = 0.75f), maxLines = 3)
@@ -193,6 +199,7 @@ fun SettingsScreen(
     onSelectDemo: () -> Unit,
     onSelectRemoteUrl: () -> Unit,
     onRemoteUrlChanged: (String) -> Unit,
+    onRecurringSitesChanged: (String) -> Unit,
     onSave: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
@@ -244,6 +251,25 @@ fun SettingsScreen(
                     }
                 )
             }
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        Text("Sitios recurrentes", style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Una URL por linea. Opcionalmente usa: URL | Categoria. Se analizan cada 6 horas y se agregan candidatos directos al catalogo.",
+            color = Color.White.copy(alpha = 0.75f)
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = uiState.recurringSitesText,
+            onValueChange = onRecurringSitesChanged,
+            modifier = Modifier.fillMaxWidth().height(130.dp),
+            label = { Text("Paginas para autoanalizar") },
+            placeholder = { Text("https://sitio.example/ultimos | Anime") },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
+            maxLines = 5
         )
 
         uiState.error?.let {

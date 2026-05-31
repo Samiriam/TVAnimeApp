@@ -21,6 +21,7 @@ class HtmlMediaExtractor @Inject constructor(
             addAll(extractVideoAndAudio(document, pageUrl))
             addAll(extractAnchorLinks(document, pageUrl))
             addAll(extractEmbeds(document, pageUrl))
+            addAll(extractScriptCandidates(document, pageUrl))
         }.sortedBy { it.priority }.distinctBy { it.url }
 
         require(candidates.isNotEmpty()) { "No se detectaron enlaces multimedia compatibles en la pagina." }
@@ -63,11 +64,59 @@ class HtmlMediaExtractor @Inject constructor(
             }
     }
 
+    private fun extractScriptCandidates(document: Document, pageUrl: URI): List<DetectedMedia> {
+        val dataAttributeCandidates = document.select("[data-src], [data-file], [data-video], [data-source]")
+            .flatMap { element ->
+                listOf(
+                    element.attr("data-src"),
+                    element.attr("data-file"),
+                    element.attr("data-video"),
+                    element.attr("data-source")
+                )
+            }
+            .mapNotNull { rawUrl ->
+                candidateNormalizer.normalize(
+                    rawUrl = rawUrl,
+                    pageUrl = pageUrl,
+                    sourceName = "generic-html:data-attr"
+                )
+            }
+
+        val payload = buildString {
+            document.select("script").forEach { appendLine(it.html()) }
+        }
+
+        val scriptCandidates = SCRIPT_PATTERNS.flatMap { pattern ->
+            pattern.findAll(payload).mapNotNull { match ->
+                val rawUrl = match.groupValues.getOrNull(1).orEmpty()
+                candidateNormalizer.normalize(
+                    rawUrl = rawUrl,
+                    pageUrl = pageUrl,
+                    sourceName = "generic-html:script",
+                    diagnostics = listOf("pattern=${pattern.pattern.take(32)}")
+                )
+            }.toList()
+        }
+
+        return dataAttributeCandidates + scriptCandidates
+    }
+
     private fun buildCandidate(url: String, pageUrl: URI): DetectedMedia? {
         return candidateNormalizer.normalize(
             rawUrl = url,
             pageUrl = pageUrl,
             sourceName = "generic-html"
+        )
+    }
+
+    companion object {
+        private val SCRIPT_PATTERNS = listOf(
+            Regex("""(?:file|src|source|video)\s*[:=]\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""sources?\s*:\s*\[[\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""player\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""jwplayer\([^)]*\)\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""window\.location\.href\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(https?://[^\s"'<>]+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\s"'<>]*)""", RegexOption.IGNORE_CASE)
         )
     }
 }

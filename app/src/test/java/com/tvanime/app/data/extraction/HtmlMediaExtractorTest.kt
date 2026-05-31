@@ -34,4 +34,25 @@ class HtmlMediaExtractorTest {
         assertTrue(result.candidates.any { it.format == "embed" && it.requiresResolver })
         assertTrue(result.candidates.first().priority <= result.candidates.last().priority)
     }
+
+    @Test
+    fun extractsScriptAndDataAttributeCandidates() {
+        val html = """
+            <html>
+            <head><title>Script Demo</title></head>
+            <body>
+                <script>
+                    jwplayer("player").setup({ file: "https://cdn.example.com/script-stream.m3u8" });
+                </script>
+                <div data-file="/media/from-data.mp4"></div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val result = extractor.extract(URI("https://example.com/page"), html)
+
+        assertEquals("Script Demo", result.title)
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/script-stream.m3u8" && it.format == "hls" })
+        assertTrue(result.candidates.any { it.url == "https://example.com/media/from-data.mp4" && it.format == "mp4" })
+    }
 }
