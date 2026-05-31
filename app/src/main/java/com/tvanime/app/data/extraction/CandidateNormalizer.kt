@@ -134,7 +134,8 @@ class CandidateNormalizer @Inject constructor(
         
         if (EMBED_SERVER_TOKENS.any { lower.contains(it) }) return false
         if (lower.contains(".m3u8") || lower.contains(".mp4") || lower.contains(".webm") || 
-            lower.contains(".mkv") || lower.contains(".mp3") || lower.contains(".aac")) return false
+            lower.contains(".mkv") || lower.contains(".mp3") || lower.contains(".aac") ||
+            lower.contains(".ts") || lower.contains(".mov") || lower.contains(".avi")) return false
         if (lower.contains("/embed") || lower.contains("/player") || lower.contains("/video") ||
             lower.contains("/watch") || lower.contains("/stream") || lower.contains("/play")) return false
         
@@ -143,7 +144,7 @@ class CandidateNormalizer @Inject constructor(
 
     private fun hasPlayableExtension(url: String): Boolean {
         val lower = url.lowercase()
-        return listOf(".m3u8", ".mp4", ".webm", ".mkv", ".mp3", ".aac", ".m4a", ".ogg").any { lower.contains(it) }
+        return listOf(".m3u8", ".mp4", ".webm", ".mkv", ".ts", ".mov", ".avi", ".mp3", ".aac", ".m4a", ".ogg").any { lower.contains(it) }
     }
 
     private fun detectQuality(url: String, label: String): String? {

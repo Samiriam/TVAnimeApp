@@ -31,8 +31,9 @@ class ServerClassifier @Inject constructor() {
 
     private fun inferFormat(lower: String, matched: ServerPattern?): String = when {
         lower.contains(".m3u8") || matched?.id == "m3u8hls" -> "hls"
+        lower.contains(".ts") -> "ts"
         lower.contains(".mp4") -> "mp4"
-        lower.contains(".webm") || lower.contains(".mkv") -> "file"
+        lower.contains(".webm") || lower.contains(".mkv") || lower.contains(".mov") || lower.contains(".avi") -> "file"
         lower.contains(".mp3") || lower.contains(".aac") || lower.contains(".m4a") || lower.contains(".ogg") -> "audio"
         matched?.requiresResolver == true -> "embed"
         else -> "file"
