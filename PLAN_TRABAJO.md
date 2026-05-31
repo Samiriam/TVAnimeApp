@@ -450,6 +450,7 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `data/extraction/CandidateNormalizer.kt`, `data/extraction/ServerClassifier.kt`, `domain/model/DetectedMedia.kt`, `HtmlMediaExtractor.kt`, tests de extraction | Se adapto el patron de `anime1v-api`/Balandro para normalizar candidatos, clasificar servidores, limpiar escapes/base64 y enriquecer `DetectedMedia` con server, direct/resolver, headers, prioridad y diagnostico | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 | 2026-05-30 | `EmbedResolverRegistry.kt`, `ExtractionRepositoryImpl.kt`, `HtmlMediaExtractor.kt`, `RecurringSitesStore.kt`, `RecurringSitesSyncScheduler.kt`, `RecurringSitesSyncWorker.kt`, `TVAnimeApp.kt`, `SettingsViewModel.kt`, `Screens.kt`, `TVAnimeNavHost.kt` | Se agrego resolucion generica de embeds HTML, extraccion desde scripts/atributos `data-*`, configuracion de sitios recurrentes y sync periodica cada 6h para guardar candidatos directos en catalogo | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 | 2026-05-30 | `HtmlMediaExtractorTest.kt`, `EmbedResolverRegistryTest.kt` | Se agregaron pruebas para patrones `script`/`data-*` y resolucion de embeds; un primer test detecto que `data-file` relativo no se normalizaba y se corrigio la implementacion | `testDebugUnitTest` exitoso | ✅ |
+| 2026-05-30 | `CandidateNormalizer.kt`, `HtmlMediaExtractor.kt`, `EmbedResolverRegistry.kt`, `ServerClassifier.kt`, tests de extraction | Se endurecio scraping estilo `servertools`: atributos amplios, HTML/JS/JSON completo, meta refresh, URLs escapadas, URLs anidadas codificadas, base64/URL-safe sin padding, `atob`, `data-embed`, `decodeURIComponent`, template strings y nuevos hosts embed | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 
 ## Pruebas Y Builds
 
@@ -462,6 +463,8 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras `CandidateNormalizer` + `ServerClassifier` | `app/build/outputs/apk/debug/app-debug.apk` | Probar en Android TV/emulador |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Primer intento fallo en `HtmlMediaExtractorTest.extractsScriptAndDataAttributeCandidates` porque `data-file` relativo no se procesaba como candidato directo; se corrigio y el segundo intento paso con 11 tests | No aplica | Agregar fixtures por dominio autorizado |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras resolver embeds y sitios recurrentes | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:11:07`) | Probar instalacion y flujo en Android TV/emulador |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Primer intento fallo por captura demasiado amplia de URL anidada (`player?url=https://cdn...`); se corrigio para preferir la URL interna y el ultimo intento paso con 15 tests | No aplica | Probar con las 3 paginas reportadas por el usuario desde el APK |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras scraping agresivo sin cambios de UI adicionales | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:48:14`) | Instalar y validar en Android TV real/emulador |
 
 ## Estado Actual
 
@@ -479,12 +482,15 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 - `EmbedResolverRegistry` intenta convertir embeds HTML simples a candidatos directos usando patrones `file/src/source/video`, `sources`, `player.setup`, `jwplayer().setup`, `data-*` y URLs directas.
 - Ajustes permite definir sitios recurrentes como `URL | Categoria`; WorkManager los analiza cada 6 horas y guarda candidatos directos en Room como `MediaType.OTHER`.
 - `mediaType = "OTHER"` fue revisado contra DTO, mapper, enum y sync M3U existente; es compatible con el flujo actual.
+- El extractor ahora busca candidatos en atributos amplios, HTML completo, scripts, JSON embebido, meta refresh, URLs escapadas `https:\/\/`, URLs anidadas en query string, URL encoding, base64 URL-safe sin padding, `atob(...)`, `decodeURIComponent(...)` y template strings.
+- `ServerClassifier` agrega hosts embed adicionales: StreamSB, Vidmoly, Uqload, Fembed, Sendvid y MediaFire.
 
 ### No Funciona
 
 - No se ejecuto aun prueba manual en Android TV real o emulador durante esta sesion.
 - El extractor especializado por dominio todavia no existe; la implementacion actual es generica.
 - No todos los embeds se resolveran: solo patrones HTML/JS simples sin navegador ni bypass de protecciones.
+- No se conocen aun las 3 URLs exactas que fallaron al usuario; no se pudieron crear fixtures especificos para esos sitios.
 
 ### Falta Realizar
 
@@ -493,6 +499,7 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 - Definir el primer dominio autorizado para crear extractor especializado con fixtures versionados.
 - Agregar fixtures reales por servidor autorizado para `EmbedResolverRegistry` y `RecurringSitesSyncWorker`.
 - Verificar manualmente que los candidatos guardados por sitios recurrentes aparecen en Home y reproducen con Media3.
+- Crear `ExtractorRegistry` especializado por dominio cuando el usuario entregue las URLs que no detectan nada o cuando se identifique el primer dominio autorizado prioritario.
 
 ## Decisiones Pendientes Antes De Implementar
 

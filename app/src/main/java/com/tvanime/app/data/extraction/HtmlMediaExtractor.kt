@@ -21,6 +21,8 @@ class HtmlMediaExtractor @Inject constructor(
             addAll(extractVideoAndAudio(document, pageUrl))
             addAll(extractAnchorLinks(document, pageUrl))
             addAll(extractEmbeds(document, pageUrl))
+            addAll(extractBroadAttributeCandidates(document, pageUrl))
+            addAll(extractMetaRefresh(document, pageUrl))
             addAll(extractScriptCandidates(document, pageUrl))
         }.sortedBy { it.priority }.distinctBy { it.url }
 
@@ -83,6 +85,7 @@ class HtmlMediaExtractor @Inject constructor(
             }
 
         val payload = buildString {
+            appendLine(document.html())
             document.select("script").forEach { appendLine(it.html()) }
         }
 
@@ -101,6 +104,35 @@ class HtmlMediaExtractor @Inject constructor(
         return dataAttributeCandidates + scriptCandidates
     }
 
+    private fun extractBroadAttributeCandidates(document: Document, pageUrl: URI): List<DetectedMedia> {
+        return document.allElements
+            .flatMap { element ->
+                BROAD_ATTRIBUTES.mapNotNull { attr ->
+                    element.attr(attr).takeIf { it.isNotBlank() }
+                }
+            }
+            .mapNotNull { rawUrl ->
+                candidateNormalizer.normalize(
+                    rawUrl = rawUrl,
+                    pageUrl = pageUrl,
+                    sourceName = "generic-html:attribute"
+                )
+            }
+    }
+
+    private fun extractMetaRefresh(document: Document, pageUrl: URI): List<DetectedMedia> {
+        return document.select("meta[http-equiv=refresh], meta[content]")
+            .mapNotNull { element -> element.attr("content").takeIf { it.isNotBlank() } }
+            .mapNotNull { content -> META_REFRESH_PATTERN.find(content)?.groupValues?.getOrNull(1) }
+            .mapNotNull { rawUrl ->
+                candidateNormalizer.normalize(
+                    rawUrl = rawUrl,
+                    pageUrl = pageUrl,
+                    sourceName = "generic-html:meta"
+                )
+            }
+    }
+
     private fun buildCandidate(url: String, pageUrl: URI): DetectedMedia? {
         return candidateNormalizer.normalize(
             rawUrl = url,
@@ -110,12 +142,25 @@ class HtmlMediaExtractor @Inject constructor(
     }
 
     companion object {
+        private val BROAD_ATTRIBUTES = listOf(
+            "src", "href", "data-src", "data-file", "data-video", "data-source", "data-url",
+            "data-href", "data-embed", "data-iframe", "data-player", "data-link", "data-stream",
+            "data-config", "data-json", "file", "url", "source", "video", "poster"
+        )
+
+        private val META_REFRESH_PATTERN = Regex("""url\s*=\s*([^;]+)""", RegexOption.IGNORE_CASE)
+
         private val SCRIPT_PATTERNS = listOf(
-            Regex("""(?:file|src|source|video)\s*[:=]\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:file|src|source|video|url|embed|iframe|stream|hls|mp4)\s*[:=]\s*["'`]([^"'`]+)["'`]""", RegexOption.IGNORE_CASE),
+            Regex("""["'](?:file|src|source|video|url|embed|iframe|stream|hls|mp4)["']\s*:\s*["'`]([^"'`]+)["'`]""", RegexOption.IGNORE_CASE),
             Regex("""sources?\s*:\s*\[[\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""player\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""jwplayer\([^)]*\)\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:eval|unescape|decodeURIComponent)\(["']([^"']+)["']\)""", RegexOption.IGNORE_CASE),
             Regex("""window\.location\.href\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""atob\(["']([A-Za-z0-9+/=_-]{12,})["']\)""", RegexOption.IGNORE_CASE),
+            Regex("""([A-Za-z0-9+/=_-]{24,})"""),
+            Regex("""(https?:\\/\\/[^\s"'<>]+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\s"'<>]*)""", RegexOption.IGNORE_CASE),
             Regex("""(https?://[^\s"'<>]+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\s"'<>]*)""", RegexOption.IGNORE_CASE)
         )
     }

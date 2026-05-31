@@ -50,4 +50,33 @@ class CandidateNormalizerTest {
 
         assertNull(candidate)
     }
+
+    @Test
+    fun extractsNestedPlayableUrlFromEncodedQuery() {
+        val candidate = normalizer.normalize(
+            rawUrl = "https://player.example.com/embed?url=https%3A%2F%2Fcdn.example.com%2Fnested.m3u8%3Ftoken%3Dabc",
+            pageUrl = URI("https://example.com/watch"),
+            sourceName = "test"
+        )
+
+        requireNotNull(candidate)
+        assertEquals("https://cdn.example.com/nested.m3u8?token=abc", candidate.url)
+        assertEquals("hls", candidate.format)
+    }
+
+    @Test
+    fun decodesBase64UrlWithoutPadding() {
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("https://cdn.example.com/no-padding.mp4".toByteArray())
+
+        val candidate = normalizer.normalize(
+            rawUrl = encoded,
+            pageUrl = URI("https://example.com/watch"),
+            sourceName = "test"
+        )
+
+        requireNotNull(candidate)
+        assertEquals("https://cdn.example.com/no-padding.mp4", candidate.url)
+        assertEquals("mp4", candidate.format)
+    }
 }

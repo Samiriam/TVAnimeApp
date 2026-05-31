@@ -55,4 +55,51 @@ class HtmlMediaExtractorTest {
         assertTrue(result.candidates.any { it.url == "https://cdn.example.com/script-stream.m3u8" && it.format == "hls" })
         assertTrue(result.candidates.any { it.url == "https://example.com/media/from-data.mp4" && it.format == "mp4" })
     }
+
+    @Test
+    fun extractsAggressiveJsonEscapedAndNestedCandidates() {
+        val html = """
+            <html>
+            <body>
+                <script type="application/json">
+                    {"sources":[{"url":"https:\/\/cdn.example.com\/escaped.m3u8"}],"embed":"https://player.example.com/watch?file=https%3A%2F%2Fcdn.example.com%2Fnested.mp4"}
+                </script>
+                <div data-embed="https://streamtape.com/e/abc123"></div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val result = extractor.extract(URI("https://example.com/page"), html)
+
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/escaped.m3u8" && it.format == "hls" })
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/nested.mp4" && it.format == "mp4" })
+        assertTrue(result.candidates.any { it.url == "https://streamtape.com/e/abc123" && it.requiresResolver })
+    }
+
+    @Test
+    fun extractsMaxAggressivePatterns() {
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("https://cdn.example.com/base64.m3u8".toByteArray())
+        val html = """
+            <html>
+            <head><meta http-equiv="refresh" content="0;url=https://cdn.example.com/meta.mp4"></head>
+            <body>
+                <div data-config="https%3A%2F%2Fcdn.example.com%2Fconfig.m3u8"></div>
+                <script>
+                    const a = atob("$encoded");
+                    const b = decodeURIComponent("https%3A%2F%2Fcdn.example.com%2Fdecode.mp4");
+                    const c = { stream: `https://cdn.example.com/template.webm` };
+                </script>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val result = extractor.extract(URI("https://example.com/page"), html)
+
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/meta.mp4" })
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/config.m3u8" })
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/base64.m3u8" })
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/decode.mp4" })
+        assertTrue(result.candidates.any { it.url == "https://cdn.example.com/template.webm" })
+    }
 }

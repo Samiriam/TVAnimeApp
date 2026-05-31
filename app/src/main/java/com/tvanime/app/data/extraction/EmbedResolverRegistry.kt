@@ -51,11 +51,16 @@ class EmbedResolverRegistry @Inject constructor(
 
     companion object {
         private val DIRECT_PATTERNS = listOf(
-            Regex("""(?:file|src|source|video)\s*[:=]\s*["']([^"']+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^"']*)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:file|src|source|video|url|embed|iframe|stream|hls|mp4)\s*[:=]\s*["'`]([^"'`]+)["'`]""", RegexOption.IGNORE_CASE),
+            Regex("""["'](?:file|src|source|video|url|embed|iframe|stream|hls|mp4)["']\s*:\s*["'`]([^"'`]+)["'`]""", RegexOption.IGNORE_CASE),
             Regex("""sources?\s*:\s*\[[\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""player\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""jwplayer\([^)]*\)\.setup\([\s\S]*?(?:file|src)\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""data-(?:src|file|video|source)\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:eval|unescape|decodeURIComponent)\(["']([^"']+)["']\)""", RegexOption.IGNORE_CASE),
+            Regex("""atob\(["']([A-Za-z0-9+/=_-]{12,})["']\)""", RegexOption.IGNORE_CASE),
+            Regex("""([A-Za-z0-9+/=_-]{24,})"""),
+            Regex("""(https?:\\/\\/[^\s"'<>]+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\s"'<>]*)""", RegexOption.IGNORE_CASE),
             Regex("""(https?://[^\s"'<>]+\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\s"'<>]*)""", RegexOption.IGNORE_CASE)
         )
     }

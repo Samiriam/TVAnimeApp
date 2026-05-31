@@ -63,7 +63,13 @@ class ServerClassifier @Inject constructor() {
             ServerPattern("streamwish", "Streamwish/Filemoon", hostTokens = listOf("streamwish", "sfastwish", "filemoon", "flaswish"), requiresResolver = true, priority = 75),
             ServerPattern("voe", "VOE", hostTokens = listOf("voe"), requiresResolver = true, priority = 80),
             ServerPattern("mixdrop", "Mixdrop", hostTokens = listOf("mixdrop"), requiresResolver = true, priority = 85),
-            ServerPattern("doodstream", "Doodstream", hostTokens = listOf("doodstream", "dood"), requiresResolver = true, priority = 90)
+            ServerPattern("doodstream", "Doodstream", hostTokens = listOf("doodstream", "dood"), requiresResolver = true, priority = 90),
+            ServerPattern("streamsb", "StreamSB", hostTokens = listOf("streamsb", "sbembed", "sbvideo", "sbrapid"), requiresResolver = true, priority = 95),
+            ServerPattern("vidmoly", "Vidmoly", hostTokens = listOf("vidmoly"), requiresResolver = true, priority = 100),
+            ServerPattern("uqload", "Uqload", hostTokens = listOf("uqload"), requiresResolver = true, priority = 105),
+            ServerPattern("fembed", "Fembed", hostTokens = listOf("fembed", "feurl", "femax"), requiresResolver = true, priority = 110),
+            ServerPattern("sendvid", "Sendvid", hostTokens = listOf("sendvid"), requiresResolver = true, priority = 115),
+            ServerPattern("mediafire", "MediaFire", hostTokens = listOf("mediafire"), requiresResolver = true, priority = 120)
         )
     }
 }
