@@ -5,17 +5,6 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Fondo degradado púrpura oscuro -->
-    <path
-        android:fillColor="#1A1A2E"
-        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
-
-    <!-- Gradiente sutil púrpura -->
-    <path
-        android:fillColor="#16213E"
-        android:fillAlpha="0.5"
-        android:pathData="M0,54 Q54,0 108,54 Q54,108 0,54 Z" />
-
     <!-- Pantalla de TV redondeada -->
     <path
         android:fillColor="#FFFFFF"
@@ -23,12 +12,12 @@
 
     <!-- Borde de pantalla (zona oscura) -->
     <path
-        android:fillColor="#0F0F1A"
+        android:fillColor="#1A1A2E"
         android:pathData="M28,30 L80,30 Q82,30 82,32 L82,66 Q82,68 80,68 L28,68 Q26,68 26,66 L26,32 Q26,30 28,30 Z" />
 
     <!-- Pantalla interior con gradiente oscuro -->
     <path
-        android:fillColor="#0D0D15"
+        android:fillColor="#0F0F1A"
         android:pathData="M30,32 L78,32 Q80,32 80,34 L80,64 Q80,66 78,66 L30,66 Q28,66 28,64 L28,34 Q28,32 30,32 Z" />
 
     <!-- Triángulo de play (centrado en pantalla) -->
@@ -49,18 +38,18 @@
     <!-- Brillo de pantalla (efecto sutil) -->
     <path
         android:fillColor="#FFFFFF"
-        android:fillAlpha="0.12"
+        android:fillAlpha="0.15"
         android:pathData="M30,32 L54,32 L54,48 L30,48 Z" />
 
     <!-- Línea de detalle en la pantalla -->
     <path
         android:fillColor="#E94560"
-        android:fillAlpha="0.5"
+        android:fillAlpha="0.6"
         android:pathData="M30,50 L78,50 L78,52 L30,52 Z" />
 
-    <!-- Puntos de detalle -->
+    <!-- Pequeños puntos de detalle en la esquina superior derecha -->
     <path
         android:fillColor="#E94560"
-        android:fillAlpha="0.35"
+        android:fillAlpha="0.4"
         android:pathData="M72,36 A2,2 0 1,1 72,40 A2,2 0 1,1 72,36 Z" />
 </vector>

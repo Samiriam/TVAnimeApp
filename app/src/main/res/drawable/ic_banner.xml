@@ -1,17 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#08080E" />
-        </shape>
-    </item>
-    <item
-        android:width="320dp"
-        android:height="180dp"
-        android:gravity="center">
-        <shape android:shape="rectangle">
-            <solid android:color="#7C3AED" />
-            <corners android:radius="8dp" />
-        </shape>
-    </item>
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Fondo oscuro -->
+    <path
+        android:fillColor="#0F0F1A"
+        android:pathData="M0,0 L320,0 L320,180 L0,180 Z" />
+
+    <!-- Gradiente sutil -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:fillAlpha="0.4"
+        android:pathData="M0,90 Q160,0 320,90 Q160,180 0,90 Z" />
+
+    <!-- Barra decorativa superior -->
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M60,8 L260,8 L260,12 L60,12 Z" />
+
+    <!-- Pantalla de TV - marco blanco -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,40 Q100,34 106,34 L214,34 Q220,34 220,40 L220,110 Q220,116 214,116 L106,116 Q100,116 100,110 Z" />
+
+    <!-- Pantalla interior oscura -->
+    <path
+        android:fillColor="#0D0D15"
+        android:pathData="M106,40 L214,40 Q218,40 218,44 L218,106 Q218,110 214,110 L106,110 Q102,110 102,106 L102,44 Q102,40 106,40 Z" />
+
+    <!-- Triángulo de play -->
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M140,55 L140,95 L175,75 Z" />
+
+    <!-- Soporte de la TV -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M130,116 L190,116 L186,128 L134,128 Z" />
+
+    <!-- Base de la TV -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M122,128 L198,128 L200,134 L120,134 Z" />
+
+    <!-- Brillo sutil en pantalla -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.1"
+        android:pathData="M106,40 L160,40 L106,70 Z" />
+
+    <!-- Línea decorativa en pantalla -->
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.4"
+        android:pathData="M106,78 L214,78 L214,80 L106,80 Z" />
+
+    <!-- Texto TVAnime (estilizado con formas) -->
+    <!-- T -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"
+        android:pathData="M50,145 L80,145 L80,149 L63,149 L63,165 L53,165 L53,149 L40,149 L40,145 Z" />
+    <!-- V -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"
+        android:pathData="M85,145 L90,145 L97,165 L104,145 L109,145 L100,168 L94,168 Z" />
+    <!-- A -->
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M120,168 L125,149 L129,149 L140,149 L144,149 L148,149 L155,168 L149,168 L147,160 L127,160 L125,168 Z M130,156 L146,156 L138,149 Z" />
+    <!-- N -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"
+        android:pathData="M165,145 L175,145 L175,165 L165,165 L165,145 M165,145 L165,165 L175,145 L175,165" />
+
+    <!-- Línea inferior decorativa -->
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.3"
+        android:pathData="M240,155 L300,155 L300,157 L240,157 Z" />
+</vector>

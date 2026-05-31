@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo degradado púrpura oscuro -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+
+    <!-- Gradiente sutil púrpura -->
+    <path
+        android:fillColor="#16213E"
+        android:fillAlpha="0.5"
+        android:pathData="M0,54 Q54,0 108,54 Q54,108 0,54 Z" />
+
+    <!-- Puntos decorativos sutiles -->
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.08"
+        android:pathData="M10,10 A3,3 0 1,1 10,16 A3,3 0 1,1 10,10 Z" />
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.08"
+        android:pathData="M98,10 A3,3 0 1,1 98,16 A3,3 0 1,1 98,10 Z" />
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.08"
+        android:pathData="M10,98 A3,3 0 1,1 10,104 A3,3 0 1,1 10,98 Z" />
+    <path
+        android:fillColor="#E94560"
+        android:fillAlpha="0.08"
+        android:pathData="M98,98 A3,3 0 1,1 98,104 A3,3 0 1,1 98,98 Z" />
+</vector>
