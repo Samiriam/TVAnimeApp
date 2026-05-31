@@ -8,9 +8,13 @@ import org.junit.Test
 
 class EmbedResolverRegistryTest {
 
+    private val serverSpecificResolvers = ServerSpecificResolvers()
+    private val fetcher = HttpPageFetcher()
+    private val normalizer = CandidateNormalizer(ServerClassifier())
     private val registry = EmbedResolverRegistry(
-        httpPageFetcher = HttpPageFetcher(okhttp3.OkHttpClient()),
-        candidateNormalizer = CandidateNormalizer(ServerClassifier())
+        httpPageFetcher = fetcher,
+        candidateNormalizer = normalizer,
+        serverSpecificResolvers = serverSpecificResolvers
     )
 
     @Test

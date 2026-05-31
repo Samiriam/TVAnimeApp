@@ -218,12 +218,14 @@ class HtmlMediaExtractor @Inject constructor(
         )
 
         private val SCRIPT_VAR_PATTERNS = listOf(
-            Regex("""var\s+(?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url)\s*=\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
-            Regex("""(?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url)\s*[:=]\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
-            Regex("""['"](?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url)['"]\s*:\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
+            Regex("""var\s+(?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url|stream)\s*=\s*['"`]([^'"`]+)['"`]""", RegexOption.IGNORE_CASE),
+            Regex("""(?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url|stream)\s*[:=]\s*['"`]([^'"`]+)['"`]""", RegexOption.IGNORE_CASE),
+            Regex("""['"](?:video|videoUrl|video_url|streamUrl|stream_url|source|src|file|url|stream)['"]\s*:\s*['"`]([^'"`]+)['"`]""", RegexOption.IGNORE_CASE),
             Regex("""player\.setup\(\{[^}]*file\s*:\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
             Regex("""jwplayer\([^)]*\)\.setup\(\{[^}]*file\s*:\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
-            Regex("""sources\s*:\s*\[[^\]]*file\s*:\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE)
+            Regex("""sources\s*:\s*\[[^\]]*file\s*:\s*['"]([^'"]+)['"]""", RegexOption.IGNORE_CASE),
+            Regex("""(?:eval|unescape|decodeURIComponent)\(["'`]([^"'`]+)["'`]\)""", RegexOption.IGNORE_CASE),
+            Regex("""window\.location(?:\.href)?\s*=\s*['"`]([^'"`]+)['"`]""", RegexOption.IGNORE_CASE)
         )
 
         private val BASE64_PATTERNS = listOf(

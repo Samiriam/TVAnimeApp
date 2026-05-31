@@ -18,10 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +46,19 @@ import com.tvanime.app.domain.model.DetectedMedia
 import com.tvanime.app.ui.viewmodel.ExtractMediaUiState
 import com.tvanime.app.ui.viewmodel.SettingsUiState
 
+// ── Cinematic tokens ──
+private val FocusRing = Color(0xFF00CED1)
+private val GlassBg = Color(0xCC1D2022)
+private val GlassBorder = Color(0x333B4949)
+private val ChipBg = Color(0x991D2022)
+
+@Composable
+private fun focusRingMod(focused: Boolean, modifier: Modifier, scale: Float = 1.04f) = modifier
+    .focusable()
+    .onFocusChanged {}
+    .scale(if (focused) scale else 1f)
+    .border(if (focused) 4.dp else 0.dp, if (focused) FocusRing else Color.Transparent, RoundedCornerShape(16.dp))
+
 // ─────────────────────────────────────────────────────────────────
 // HomeScreen
 // ─────────────────────────────────────────────────────────────────
@@ -54,45 +70,107 @@ fun HomeScreen(
     onContentSelected: (ContentItem) -> Unit
 ) {
     val focusExtract = remember { FocusRequester() }
+    val prim = MaterialTheme.colorScheme.primary
+    val surfV = MaterialTheme.colorScheme.surfaceVariant
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp)
-    ) {
-        LaunchedEffect(Unit) { focusExtract.requestFocus() }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Side nav rail
+        Column(
+            Modifier.fillMaxHeight().width(280.dp)
+                .background(Brush.horizontalGradient(listOf(surfV.copy(alpha = 0.7f), Color.Transparent)))
+                .border(0.dp, GlassBorder, RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
+                .padding(vertical = 60.dp, horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                "TVAnime",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TvButton(text = "Explorar", icon = Icons.Default.Search,
-                    focusRequester = focusExtract, onClick = onOpenExtractor)
-                TvButton(text = "Ajustes", icon = Icons.Default.Settings,
-                    onClick = onOpenSettings)
+            Row(Modifier.padding(start = 24.dp, bottom = 56.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.Home, null, Modifier.size(36.dp), tint = prim)
+                Text("TVAnime", style = MaterialTheme.typography.headlineMedium,
+                    color = prim, fontWeight = FontWeight.Bold)
             }
+
+            NavItem(Icons.Default.Home, "Inicio", active = true, onClick = {})
+            NavItem(Icons.Default.Search, "Buscar", onClick = onOpenExtractor)
+            NavItem(Icons.Default.Search, "Analizar URL", onClick = onOpenExtractor)
+            NavItem(Icons.Default.Star, "Mi biblioteca", onClick = {})
+            NavItem(Icons.Default.Favorite, "Favoritos", onClick = {})
+            NavItem(Icons.Default.Refresh, "Historial", onClick = {})
+            NavItem(Icons.Default.List, "Listas M3U", onClick = {})
+
+            Spacer(Modifier.weight(1f))
+            NavItem(Icons.Default.Settings, "Ajustes", onClick = onOpenSettings)
         }
 
-        Spacer(Modifier.height(24.dp))
+        // Main content
+        Column(
+            Modifier.fillMaxSize().padding(start = 280.dp)
+        ) {
+            LaunchedEffect(Unit) { focusExtract.requestFocus() }
 
-        if (catalog.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Sin contenido. Ve a Explorar para analizar URLs.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(catalog) { item ->
-                    CatalogCard(item = item, onClick = { onContentSelected(item) })
+            if (catalog.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Text("TVAnimeApp", style = MaterialTheme.typography.headlineLarge,
+                            color = prim, fontWeight = FontWeight.Bold)
+                        Text("Tu app de streaming para Android TV", style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            CinematicButton("Analizar URL", Icons.Default.Search, focusExtract, onOpenExtractor)
+                            CinematicButton("Ajustes", Icons.Default.Settings, onClick = onOpenSettings)
+                        }
+                    }
+                }
+            } else {
+                // Hero section
+                Box(Modifier.fillMaxWidth().height(420.dp)) {
+                    Box(Modifier.fillMaxSize()
+                        .background(Brush.verticalGradient(listOf(surfV, MaterialTheme.colorScheme.background))))
+                    Box(Modifier.align(Alignment.BottomStart).padding(80.dp, 60.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Surface(color = ChipBg, shape = RoundedCornerShape(999.dp),
+                                    border = BorderStroke(1.dp, prim.copy(alpha = 0.3f))) {
+                                    Text("Catalogo", Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                        color = prim, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            Text("TVAnime", style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                            Text("Explora tu contenido favorito", style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                Text("Contenido", Modifier.padding(horizontal = 80.dp, vertical = 16.dp),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    contentPadding = PaddingValues(start = 80.dp, end = 40.dp)
+                ) {
+                    items(catalog) { item ->
+                        var focused by remember { mutableStateOf(false) }
+                        Card(
+                            onClick = { onContentSelected(item) },
+                            modifier = Modifier.width(320.dp).then(
+                                if (focused) Modifier.scale(1.08f).border(4.dp, FocusRing, RoundedCornerShape(16.dp))
+                                else Modifier
+                            ).focusable().onFocusChanged { focused = it.isFocused },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = surfV.copy(alpha = 0.7f))
+                        ) {
+                            Column(Modifier.padding(20.dp)) {
+                                Text(item.title, style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(8.dp))
+                                Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -100,55 +178,46 @@ fun HomeScreen(
 }
 
 @Composable
-private fun CatalogCard(item: ContentItem, onClick: () -> Unit) {
+private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
+                    active: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val prim = MaterialTheme.colorScheme.primary
+    val bg = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else Color.Transparent
+    val fg = if (active) prim else MaterialTheme.colorScheme.onSurfaceVariant
 
-    Card(
+    Surface(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .then(if (focused) Modifier.scale(1.03f) else Modifier)
-            .border(2.dp, if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
-                RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier = Modifier.fillMaxWidth().then(if (focused) Modifier.border(3.dp, prim, RoundedCornerShape(12.dp)) else Modifier)
+            .focusable().onFocusChanged { focused = it.isFocused }.scale(if (focused) 1.06f else 1f),
+        shape = RoundedCornerShape(12.dp), color = bg
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Text(item.title, style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(6.dp))
-            Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        Row(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(icon, null, Modifier.size(24.dp), tint = fg)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
         }
     }
 }
 
 @Composable
-private fun TvButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    focusRequester: FocusRequester? = null,
-    onClick: () -> Unit
-) {
+private fun CinematicButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+                            focusReq: FocusRequester? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val prim = MaterialTheme.colorScheme.primary
 
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier
-            .focusRequester(focusRequester ?: FocusRequester())
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .border(2.dp, if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
-                RoundedCornerShape(12.dp))
-            .scale(if (focused) 1.08f else 1f),
+        modifier = Modifier.run {
+            val m = focusable().onFocusChanged { focused = it.isFocused }
+                .scale(if (focused) 1.06f else 1f)
+                .border(if (focused) 3.dp else 1.dp, if (focused) prim else GlassBorder, RoundedCornerShape(12.dp))
+            if (focusReq != null) focusRequester(focusReq) else m
+        },
         shape = RoundedCornerShape(12.dp),
-        border = if (focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
+        border = BorderStroke(1.dp, GlassBorder),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
     ) {
-        Icon(icon, contentDescription = null, Modifier.size(20.dp))
+        Icon(icon, null, Modifier.size(20.dp))
         Spacer(Modifier.size(8.dp))
         Text(text)
     }
@@ -171,18 +240,14 @@ fun ExtractMediaScreen(
     onToggleSuggestions: (Boolean) -> Unit = {}
 ) {
     val focusUrl = remember { FocusRequester() }
-
     LaunchedEffect(Unit) { focusUrl.requestFocus() }
 
-    val surf = MaterialTheme.colorScheme.surfaceVariant
+    val prim = MaterialTheme.colorScheme.primary
+    val surfV = MaterialTheme.colorScheme.surfaceVariant
     val onSurf = MaterialTheme.colorScheme.onSurface
-    val primary = MaterialTheme.colorScheme.primary
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp)
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp)
     ) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             FocusableIconButton(onClick = onBack, icon = Icons.AutoMirrored.Filled.ArrowBack)
@@ -190,75 +255,50 @@ fun ExtractMediaScreen(
             FocusableIconButton(onClick = { onToggleSuggestions(!uiState.showSuggestions) },
                 icon = if (uiState.showSuggestions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown)
         }
-
         Spacer(Modifier.height(20.dp))
 
         OutlinedTextField(
-            value = uiState.pageUrl,
-            onValueChange = onUrlChanged,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusUrl)
-                .focusable(),
+            value = uiState.pageUrl, onValueChange = onUrlChanged,
+            modifier = Modifier.fillMaxWidth().focusRequester(focusUrl).focusable(),
             label = { Text("URL de pagina o enlace de video") },
             placeholder = { Text("pega aqui la URL completa...") },
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
             singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, null, tint = primary) },
-            trailingIcon = {
-                if (uiState.pageUrl.isNotBlank())
-                    IconButton(onClick = { onUrlChanged("") }) { Icon(Icons.Default.Clear, "Limpiar") }
-            },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = prim) },
+            trailingIcon = { if (uiState.pageUrl.isNotBlank()) IconButton(onClick = { onUrlChanged("") }) { Icon(Icons.Default.Clear, "Limpiar") } },
             shape = RoundedCornerShape(14.dp)
         )
 
         Spacer(Modifier.height(14.dp))
-
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
-            var focus1 by remember { mutableStateOf(false) }
-            var focus2 by remember { mutableStateOf(false) }
+            var f1 by remember { mutableStateOf(false) }; var f2 by remember { mutableStateOf(false) }
 
-            FilledTonalButton(
-                onClick = onExtract,
-                enabled = !uiState.isLoading && uiState.pageUrl.isNotBlank(),
-                modifier = Modifier
-                    .weight(1f)
-                    .focusable().onFocusChanged { focus1 = it.isFocused }
-                    .border(2.dp, if (focus1) primary else Color.Transparent, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
+            FilledTonalButton(onClick = onExtract, enabled = !uiState.isLoading && uiState.pageUrl.isNotBlank(),
+                modifier = Modifier.weight(1f).focusable().onFocusChanged { f1 = it.isFocused }
+                    .border(if (f1) 3.dp else 0.dp, if (f1) prim else Color.Transparent, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp)) {
                 if (uiState.isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text("Analizar")
+                Spacer(Modifier.size(8.dp)); Text("Analizar")
             }
-
-            OutlinedButton(
-                onClick = onAutoAnalyze,
-                enabled = !uiState.isLoading,
-                modifier = Modifier
-                    .weight(1f)
-                    .focusable().onFocusChanged { focus2 = it.isFocused }
-                    .border(2.dp, if (focus2) primary else Color.Transparent, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
+            OutlinedButton(onClick = onAutoAnalyze, enabled = !uiState.isLoading,
+                modifier = Modifier.weight(1f).focusable().onFocusChanged { f2 = it.isFocused }
+                    .border(if (f2) 3.dp else 0.dp, if (f2) prim else Color.Transparent, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp)) {
                 Icon(Icons.Default.Star, null, Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text("Auto")
+                Spacer(Modifier.size(8.dp)); Text("Auto")
             }
         }
 
         uiState.autoAnalyzeProgress?.let {
             Spacer(Modifier.height(10.dp))
             Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text(it, style = MaterialTheme.typography.bodySmall)
-            }
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp); Text(it) }
         }
 
         uiState.error?.let {
             Spacer(Modifier.height(10.dp))
-            Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(10.dp)) {
+            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f), shape = RoundedCornerShape(10.dp)) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error)
                     Text(it, color = MaterialTheme.colorScheme.error)
@@ -268,24 +308,17 @@ fun ExtractMediaScreen(
 
         if (uiState.showSuggestions && uiState.result == null) {
             Spacer(Modifier.height(20.dp))
-            Text("Sitios populares", style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+            Text("Sitios populares", style = MaterialTheme.typography.titleMedium, color = onSurf, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
-
-            com.tvanime.app.ui.components.WebSearchSuggestions(
-                query = uiState.searchQuery,
-                onSiteSelected = onSiteSelected,
-                modifier = Modifier.weight(1f)
-            )
+            com.tvanime.app.ui.components.WebSearchSuggestions(query = uiState.searchQuery,
+                onSiteSelected = onSiteSelected, modifier = Modifier.weight(1f))
         }
 
         uiState.result?.let { result ->
             Spacer(Modifier.height(20.dp))
-
-            Surface(color = surf, shape = RoundedCornerShape(14.dp)) {
+            Surface(color = surfV.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(18.dp)) {
-                    Text(result.title, style = MaterialTheme.typography.titleLarge,
-                        color = onSurf, fontWeight = FontWeight.Bold)
+                    Text(result.title, style = MaterialTheme.typography.titleLarge, color = onSurf, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -295,87 +328,61 @@ fun ExtractMediaScreen(
             }
 
             Spacer(Modifier.height(16.dp))
-
             val playable = result.candidates.filter { it.isDirect && it.format != "embed" }
             val fallback = result.candidates.filterNot { it in playable }
             val visible = if (playable.isNotEmpty()) playable else fallback
 
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Text(
-                    if (playable.isNotEmpty()) "Reproducibles: ${playable.size}" else "Detectados: ${fallback.size}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (playable.isNotEmpty()) Color(0xFF34D399) else Color(0xFFFBBF24)
-                )
+                Text(if (playable.isNotEmpty()) "Reproducibles: ${playable.size}" else "Detectados: ${fallback.size}",
+                    style = MaterialTheme.typography.titleMedium, color = if (playable.isNotEmpty()) Color(0xFF34D399) else Color(0xFFFBBF24))
                 Text("${result.candidates.size} total", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             Spacer(Modifier.height(12.dp))
-
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(end = 24.dp)) {
-                items(visible) { candidate ->
-                    CandidateResultCard(candidate = candidate,
-                        onPlayClick = { onPlayCandidate(candidate.url, candidate.headers) })
-                }
+                items(visible) { c -> CandidateCard(c, { onPlayCandidate(c.url, c.headers) }) }
             }
         }
     }
 }
 
 @Composable
-private fun CandidateResultCard(candidate: DetectedMedia, onPlayClick: () -> Unit) {
+private fun CandidateCard(c: DetectedMedia, onPlay: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val primary = MaterialTheme.colorScheme.primary
+    val prim = MaterialTheme.colorScheme.primary
     val surf = MaterialTheme.colorScheme.surfaceVariant
-    val formatColor = when (candidate.format.lowercase()) {
-        "mp4" -> Color(0xFF34D399)
-        "hls" -> Color(0xFF60A5FA)
-        "webm" -> Color(0xFFA78BFA)
-        "mkv" -> Color(0xFFFB923C)
-        "audio" -> Color(0xFFFBBF24)
-        else -> Color(0xFF94A3B8)
+    val fc = when (c.format.lowercase()) {
+        "mp4" -> Color(0xFF34D399); "hls" -> Color(0xFF60A5FA)
+        "webm" -> Color(0xFFA78BFA); "mkv" -> Color(0xFFFB923C)
+        "audio" -> Color(0xFFFBBF24); else -> Color(0xFF94A3B8)
     }
 
-    Card(
-        onClick = onPlayClick,
-        modifier = Modifier
-            .width(370.dp)
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .scale(if (focused) 1.04f else 1f)
-            .border(2.dp, if (focused) primary else Color.Transparent, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = surf)
+    Card(onClick = onPlay,
+        modifier = Modifier.width(360.dp).focusable().onFocusChanged { focused = it.isFocused }
+            .scale(if (focused) 1.08f else 1f)
+            .border(if (focused) 4.dp else 0.dp, if (focused) FocusRing else Color.Transparent, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = surf.copy(alpha = 0.6f))
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Surface(color = formatColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                    Text(candidate.format.uppercase(), Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        color = formatColor, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                }
-                candidate.quality?.let {
-                    Surface(color = formatColor.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
-                        Text(it.uppercase(), Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            color = formatColor, style = MaterialTheme.typography.labelMedium)
+                Surface(color = fc.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                    Text(c.format.uppercase(), Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = fc, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+                c.quality?.let {
+                    Surface(color = fc.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                        Text(it.uppercase(), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = fc)
                     }
                 }
             }
-
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(if (candidate.isDirect) Icons.Default.CheckCircle else Icons.Default.Star,
-                    null, Modifier.size(18.dp), tint = if (candidate.isDirect) Color(0xFF34D399) else Color(0xFFFBBF24))
-                Text(candidate.server.replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Icon(if (c.isDirect) Icons.Default.CheckCircle else Icons.Default.Star, null, Modifier.size(18.dp),
+                    tint = if (c.isDirect) Color(0xFF34D399) else Color(0xFFFBBF24))
+                Text(c.server.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
             }
-
-            Text(candidate.url, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-
-            Button(onClick = onPlayClick, modifier = Modifier.fillMaxWidth(),
-                enabled = candidate.isDirect, shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = formatColor.copy(alpha = 0.8f))) {
-                Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(if (candidate.isDirect) "Reproducir" else "No directo")
+            Text(c.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+            Button(onClick = onPlay, Modifier.fillMaxWidth(), enabled = c.isDirect, shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (c.isDirect) MaterialTheme.colorScheme.secondary else Color.Gray)) {
+                Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(if (c.isDirect) "Reproducir" else "No directo")
             }
         }
     }
@@ -384,17 +391,10 @@ private fun CandidateResultCard(candidate: DetectedMedia, onPlayClick: () -> Uni
 @Composable
 private fun FocusableIconButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     var focused by remember { mutableStateOf(false) }
-    val primary = MaterialTheme.colorScheme.primary
-
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .border(2.dp, if (focused) primary else Color.Transparent, RoundedCornerShape(10.dp))
-    ) {
-        Icon(icon, "Volver", tint = if (focused) primary else MaterialTheme.colorScheme.onSurface)
-    }
+    val prim = MaterialTheme.colorScheme.primary
+    IconButton(onClick = onClick, modifier = Modifier.focusable().onFocusChanged { focused = it.isFocused }
+        .border(if (focused) 3.dp else 0.dp, if (focused) prim else Color.Transparent, RoundedCornerShape(10.dp))
+    ) { Icon(icon, "Volver", tint = if (focused) prim else MaterialTheme.colorScheme.onSurface) }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -402,135 +402,76 @@ private fun FocusableIconButton(onClick: () -> Unit, icon: androidx.compose.ui.g
 // ─────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsScreen(
-    uiState: SettingsUiState,
-    onBack: () -> Unit,
-    onSelectDemo: () -> Unit,
-    onSelectRemoteUrl: () -> Unit,
-    onRemoteUrlChanged: (String) -> Unit,
-    onRecurringSitesChanged: (String) -> Unit,
-    onSave: () -> Unit
+    uiState: SettingsUiState, onBack: () -> Unit, onSelectDemo: () -> Unit, onSelectRemoteUrl: () -> Unit,
+    onRemoteUrlChanged: (String) -> Unit, onRecurringSitesChanged: (String) -> Unit, onSave: () -> Unit
 ) {
-    var focusDemo by remember { mutableStateOf(false) }
-    var focusUrl by remember { mutableStateOf(false) }
-    var focusSave by remember { mutableStateOf(false) }
-    val primary = MaterialTheme.colorScheme.primary
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp)
-    ) {
+    var fd by remember { mutableStateOf(false) }; var fu by remember { mutableStateOf(false) }
+    var fs by remember { mutableStateOf(false) }
+    val prim = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp)) {
         FocusableIconButton(onClick = onBack, icon = Icons.AutoMirrored.Filled.ArrowBack)
         Spacer(Modifier.height(16.dp))
         Text("Ajustes", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(24.dp))
-
-        Text("Origen de playlist M3U", style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface)
+        Text("Origen de playlist M3U", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(12.dp))
-
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onSelectDemo,
-                modifier = Modifier.focusable().onFocusChanged { focusDemo = it.isFocused }
-                    .border(2.dp, if (focusDemo) primary else Color.Transparent, RoundedCornerShape(10.dp)),
+                modifier = Modifier.focusable().onFocusChanged { fd = it.isFocused }.border(if (fd) 3.dp else 0.dp, if (fd) prim else Color.Transparent, RoundedCornerShape(10.dp)),
                 shape = RoundedCornerShape(10.dp)) { Text("Demo local") }
-
             OutlinedButton(onClick = onSelectRemoteUrl,
-                modifier = Modifier.focusable().onFocusChanged { focusUrl = it.isFocused }
-                    .border(2.dp, if (focusUrl) primary else Color.Transparent, RoundedCornerShape(10.dp)),
+                modifier = Modifier.focusable().onFocusChanged { fu = it.isFocused }.border(if (fu) 3.dp else 0.dp, if (fu) prim else Color.Transparent, RoundedCornerShape(10.dp)),
                 shape = RoundedCornerShape(10.dp)) { Text("URL remota") }
         }
-
         if (uiState.selectedSource == PlaylistSource.REMOTE_URL) {
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = uiState.remoteUrl, onValueChange = onRemoteUrlChanged,
-                modifier = Modifier.fillMaxWidth(), label = { Text("URL del .m3u") },
-                singleLine = true, shape = RoundedCornerShape(10.dp))
+            OutlinedTextField(value = uiState.remoteUrl, onValueChange = onRemoteUrlChanged, Modifier.fillMaxWidth(),
+                label = { Text("URL del .m3u") }, singleLine = true, shape = RoundedCornerShape(10.dp))
         }
-
         Spacer(Modifier.height(20.dp))
-        Text("Sitios recurrentes", style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface)
+        Text("Sitios recurrentes", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         Text("Una URL por linea: URL | Categoria", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = uiState.recurringSitesText, onValueChange = onRecurringSitesChanged,
-            modifier = Modifier.fillMaxWidth().height(120.dp), shape = RoundedCornerShape(10.dp),
-            maxLines = 8)
-
+        OutlinedTextField(value = uiState.recurringSitesText, onValueChange = onRecurringSitesChanged, Modifier.fillMaxWidth().height(120.dp),
+            shape = RoundedCornerShape(10.dp), maxLines = 8)
         Spacer(Modifier.height(20.dp))
         FilledTonalButton(onClick = onSave,
-            modifier = Modifier.focusable().onFocusChanged { focusSave = it.isFocused }
-                .border(2.dp, if (focusSave) primary else Color.Transparent, RoundedCornerShape(12.dp)),
-            shape = RoundedCornerShape(12.dp)) { Text("Guardar y sincronizar") }
+            modifier = Modifier.focusable().onFocusChanged { fs = it.isFocused }.border(if (fs) 3.dp else 0.dp, if (fs) prim else Color.Transparent, RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(14.dp)) { Text("Guardar y sincronizar") }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────
-// DetailScreen
+// DetailScreen  &  PlayerScreen
 // ─────────────────────────────────────────────────────────────────
 @Composable
-fun DetailScreen(
-    contentItem: ContentItem?,
-    isFavorite: Boolean,
-    onPlayClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onBack: () -> Unit
-) {
-    val primary = MaterialTheme.colorScheme.primary
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp)
-    ) {
+fun DetailScreen(contentItem: ContentItem?, isFavorite: Boolean, onPlayClick: () -> Unit, onToggleFavorite: () -> Unit, onBack: () -> Unit) {
+    val prim = MaterialTheme.colorScheme.primary
+    var fp by remember { mutableStateOf(false) }; var ff by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp)) {
         FocusableIconButton(onClick = onBack, icon = Icons.AutoMirrored.Filled.ArrowBack)
         Spacer(Modifier.height(16.dp))
-
-        contentItem?.let { item ->
-            Text(item.title, style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+        contentItem?.let {
+            Text(it.title, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
-            Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(it.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
-
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                var focusPlay by remember { mutableStateOf(false) }
-                var focusFav by remember { mutableStateOf(false) }
-
                 FilledTonalButton(onClick = onPlayClick,
-                    modifier = Modifier.focusable().onFocusChanged { focusPlay = it.isFocused }
-                        .border(2.dp, if (focusPlay) primary else Color.Transparent, RoundedCornerShape(12.dp)),
-                    shape = RoundedCornerShape(12.dp)) {
-                    Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("Reproducir")
-                }
-
+                    modifier = Modifier.focusable().onFocusChanged { fp = it.isFocused }.border(if (fp) 3.dp else 0.dp, if (fp) prim else Color.Transparent, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text("Reproducir") }
                 OutlinedButton(onClick = onToggleFavorite,
-                    modifier = Modifier.focusable().onFocusChanged { focusFav = it.isFocused }
-                        .border(2.dp, if (focusFav) primary else Color.Transparent, RoundedCornerShape(12.dp)),
-                    shape = RoundedCornerShape(12.dp)) {
-                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, Modifier.size(20.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text(if (isFavorite) "Quitar favorito" else "Agregar favorito")
-                }
+                    modifier = Modifier.focusable().onFocusChanged { ff = it.isFocused }.border(if (ff) 3.dp else 0.dp, if (ff) prim else Color.Transparent, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp)) {
+                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text(if (isFavorite) "Quitar" else "Favorito") }
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// PlayerScreen
-// ─────────────────────────────────────────────────────────────────
 @Composable
-fun PlayerScreen(
-    videoUrl: String,
-    modifier: Modifier = Modifier,
-    headers: Map<String, String> = emptyMap()
-) {
+fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<String, String> = emptyMap()) {
     val context = LocalContext.current
     var showControls by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(false) }
@@ -538,76 +479,36 @@ fun PlayerScreen(
     var duration by remember { mutableLongStateOf(0L) }
 
     val exoPlayer = remember(videoUrl) {
-        val factory = DefaultHttpDataSource.Factory().apply {
-            if (headers.isNotEmpty()) setDefaultRequestProperties(headers)
-        }
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(factory))
-            .build().apply {
-                setMediaItem(MediaItem.Builder().setUri(videoUrl).build())
-                prepare()
-                playWhenReady = true
-            }
+        val factory = DefaultHttpDataSource.Factory().apply { if (headers.isNotEmpty()) setDefaultRequestProperties(headers) }
+        ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(factory))
+            .build().apply { setMediaItem(MediaItem.Builder().setUri(videoUrl).build()); prepare(); playWhenReady = true }
     }
-
-    DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
-    }
-
+    DisposableEffect(Unit) { onDispose { exoPlayer.release() } }
     DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
-            override fun onPlaybackStateChanged(state: Int) {
-                currentPosition = exoPlayer.currentPosition
-                duration = exoPlayer.duration
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose { exoPlayer.removeListener(listener) }
+        val l = object : Player.Listener {
+            override fun onIsPlayingChanged(p: Boolean) { isPlaying = p }
+            override fun onPlaybackStateChanged(s: Int) { currentPosition = exoPlayer.currentPosition; duration = exoPlayer.duration }
+        }; exoPlayer.addListener(l); onDispose { exoPlayer.removeListener(l) }
     }
-
-    LaunchedEffect(showControls) {
-        if (showControls) { kotlinx.coroutines.delay(4000); showControls = false }
-    }
+    LaunchedEffect(showControls) { if (showControls) { kotlinx.coroutines.delay(4000); showControls = false } }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showControls, modifier = Modifier.align(Alignment.BottomCenter),
-            enter = androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.fadeOut()
-        ) {
+        AndroidView(factory = { ctx ->
+            PlayerView(ctx).apply { player = exoPlayer; useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                layoutParams = ViewGroup.LayoutParams(-1, -1) } }, modifier = Modifier.fillMaxSize())
+        androidx.compose.animation.AnimatedVisibility(visible = showControls, modifier = Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.SpaceEvenly) {
-                var fp by remember { mutableStateOf(false) }; var ff by remember { mutableStateOf(false) }
-                var fs by remember { mutableStateOf(false) }
-
+                var a by remember { mutableStateOf(false) }; var b by remember { mutableStateOf(false) }; var c by remember { mutableStateOf(false) }
                 IconButton(onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0)) },
-                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { fp = it.isFocused }
-                        .border(2.dp, if (fp) Color.White else Color.Transparent, RoundedCornerShape(10.dp))) {
-                    Text("⏪", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
-
-                IconButton(onClick = {
-                    if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
-                }, modifier = Modifier.size(56.dp).focusable().onFocusChanged { fs = it.isFocused }
-                    .border(2.dp, if (fs) Color.White else Color.Transparent, RoundedCornerShape(10.dp))) {
-                    Text(if (exoPlayer.isPlaying) "⏸" else "▶", color = Color.White,
-                        style = MaterialTheme.typography.headlineSmall) }
-
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { a = it.isFocused }.border(if (a) 3.dp else 0.dp, if (a) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                { Text("\u23EA", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
+                IconButton(onClick = { if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play() },
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { b = it.isFocused }.border(if (b) 3.dp else 0.dp, if (b) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                { Text(if (exoPlayer.isPlaying) "\u23F8" else "\u25B6", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
                 IconButton(onClick = { exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(duration)) },
-                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { ff = it.isFocused }
-                        .border(2.dp, if (ff) Color.White else Color.Transparent, RoundedCornerShape(10.dp))) {
-                    Text("⏩", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { c = it.isFocused }.border(if (c) 3.dp else 0.dp, if (c) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                { Text("\u23E9", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
             }
         }
     }

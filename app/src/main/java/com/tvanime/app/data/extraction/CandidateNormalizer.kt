@@ -130,16 +130,15 @@ class CandidateNormalizer @Inject constructor(
         
         if (lower.startsWith("blob:") || lower.startsWith("javascript:") || lower.startsWith("data:")) return true
         
-        if (EMBED_SERVER_TOKENS.any { lower.contains(it) }) return false
+        if (NOISE_TOKENS.any { lower.contains(it) }) return true
         
+        if (EMBED_SERVER_TOKENS.any { lower.contains(it) }) return false
         if (lower.contains(".m3u8") || lower.contains(".mp4") || lower.contains(".webm") || 
             lower.contains(".mkv") || lower.contains(".mp3") || lower.contains(".aac")) return false
-        
         if (lower.contains("/embed") || lower.contains("/player") || lower.contains("/video") ||
             lower.contains("/watch") || lower.contains("/stream") || lower.contains("/play")) return false
         
-        return NOISE_TOKENS.any { lower.contains(it) } ||
-            ASSET_EXTENSIONS.any { lower.substringBefore('?').endsWith(it) }
+        return ASSET_EXTENSIONS.any { lower.substringBefore('?').endsWith(it) }
     }
 
     private fun hasPlayableExtension(url: String): Boolean {
