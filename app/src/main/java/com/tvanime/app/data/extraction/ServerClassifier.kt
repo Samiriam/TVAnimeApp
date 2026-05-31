@@ -49,8 +49,9 @@ class ServerClassifier @Inject constructor() {
 
     companion object {
         private val SERVER_PATTERNS = listOf(
-            ServerPattern("m3u8hls", "HLS", urlTokens = listOf(".m3u8", "hls"), requiresResolver = false, priority = 10),
-            ServerPattern("directo", "Archivo directo", urlTokens = listOf(".mp4", ".webm", ".mkv"), requiresResolver = false, priority = 20),
+            ServerPattern("directo", "Archivo directo", urlTokens = listOf(".mp4", ".webm"), requiresResolver = false, priority = 10),
+            ServerPattern("m3u8hls", "HLS", urlTokens = listOf(".m3u8", "hls"), requiresResolver = false, priority = 15),
+            ServerPattern("mkv", "MKV", urlTokens = listOf(".mkv"), requiresResolver = false, priority = 35),
             ServerPattern("jwplayer", "JWPlayer", urlTokens = listOf("jwplayer", "player.setup"), requiresResolver = true, priority = 30),
             ServerPattern("jwp", "JWP", hostTokens = listOf("jwp"), requiresResolver = true, priority = 35),
             ServerPattern("dailymotion", "Dailymotion", hostTokens = listOf("dailymotion"), requiresResolver = true, priority = 40),

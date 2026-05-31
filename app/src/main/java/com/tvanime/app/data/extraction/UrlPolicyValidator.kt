@@ -13,8 +13,8 @@ class UrlPolicyValidator @Inject constructor() {
         require(url.isNotBlank()) { "Ingresa una URL publica valida." }
 
         val uri = URI(url)
-        require(uri.scheme.equals("https", ignoreCase = true)) {
-            "Solo se permiten URLs https."
+        require(uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) {
+            "Solo se permiten URLs http o https."
         }
 
         val host = uri.host?.lowercase().orEmpty()

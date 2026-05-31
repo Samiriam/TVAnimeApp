@@ -517,6 +517,7 @@ Repositorios revisados en temporal:
 
 - `https://github.com/FxxMorgan/anime1v-api.git`
 - `https://github.com/pedroparkeralrescate-code/balandro-stremio.git`
+- `https://github.com/retrocodes12/NebulaStreams-V2.git`
 
 ### Piezas de `anime1v-api` que conviene adaptar pronto
 
@@ -550,9 +551,21 @@ Repositorios revisados en temporal:
 | Fallback por titulo alternativo | `main.py` titulo ES/original | En fase de catalogo, probar busqueda por titulo normalizado y titulo original | Baja |
 | Preservar headers personalizados | `patcher.py` | Soportar `Referer`, `User-Agent` y cookies por resolver cuando sea necesario | Alta |
 
+### Piezas de `NebulaStreams-V2` que conviene adaptar pronto
+
+| Pieza observada | Archivo fuente | Adaptacion propuesta a TVAnimeApp | Prioridad |
+|---|---|---|---|
+| Registro temporal de fuentes con metadata, headers, fallback y TTL | `services/sourceRegistry.js` | Crear registro local de candidatos detectados con expiracion corta para navegar/reproducir sin mostrar URLs enormes ni reanalizar | Alta |
+| Priorizacion de streams reproducibles | `services/streamManager.js` (`toStremioCompatibilityScore`) | Ordenar resultados por compatibilidad TV: MP4 > HLS > WEBM > MKV, calidad, codec y peso estimado cuando exista metadata | Alta |
+| Etiquetas de formato/calidad | `services/streamManager.js` (`getStreamFormatBadge`) | Mostrar badges claros `MP4`, `HLS`, `WEBM`, `MKV`, `H264`, `1080p` en tarjetas de resultado | Alta |
+| Dispatcher por host de extractor | `vendor/provider-pack/src/providers/moviesdrive.js` (`loadExtractor`) | Convertir `EmbedResolverRegistry` en dispatcher por host con resolvers aislados y fallback generico | Alta |
+| Bloqueo de hosts basura/redireccionadores | `moviesdrive.js` (`linkrit`, `google`, `gstatic`, `doubleclick`, `ampproject`) | Ampliar filtro anti-basura para que no aparezcan favicons, assets, trackers ni redirects no reproducibles | Alta |
+| Control de concurrencia por host | `services/providerService.js` (`PROVIDER_FETCH_HOST_MAX_INFLIGHT`) | Limitar solicitudes simultaneas por host en WorkManager/resolvers para evitar que una pagina bloquee la app | Media |
+| Versionado/cache por proveedor | `services/providerService.js` (`getProviderCacheVersion`) | Versionar extractores por dominio para invalidar cache y diagnosticar cuando cambie HTML del sitio | Media |
+
 ### Backlog tecnico enfocado en pruebas amplias
 
-1. Crear `ExtractorRegistry` con extractor generico + extractores especificos inspirados en dominios/patrones de `anime1v-api` y Balandro.
+1. Crear `ExtractorRegistry` con extractor generico + extractores especificos inspirados en dominios/patrones de `anime1v-api`, Balandro y NebulaStreams.
 2. Crear `EmbedResolverRegistry` separado del extractor de pagina.
 3. Implementar `ServerClassifier` con patrones de host/URL: HLS, JWPlayer, JWP, MP4Upload, YourUpload, Streamtape, Streamwish/Filemoon, Dailymotion, Blogger, Archive.org, Ok.ru, directo.
 4. Ampliar `DetectedMedia` con `server`, `quality`, `variant`, `language`, `isDirect`, `requiresResolver`, `headers`, `priority` y `diagnostics`.
@@ -562,6 +575,8 @@ Repositorios revisados en temporal:
 8. Agregar WebView resolver opcional solo para pruebas personales cuando el HTML estatico no alcance, con allowlist y timeout estricto.
 9. Agregar pantalla de diagnostico de scraping: extractor usado, servidor detectado, cantidad de candidatos, errores y tiempos.
 10. Agregar fixtures copiados/simplificados desde HTML real de prueba para no depender siempre de la red.
+11. Agregar scoring tipo NebulaStreams para priorizar candidatos reproducibles y ocultar basura visual/assets.
+12. Agregar registro temporal de candidatos con TTL para reproducir desde tarjetas sin reanalizar la pagina.
 
 ### Orden recomendado de implementacion
 

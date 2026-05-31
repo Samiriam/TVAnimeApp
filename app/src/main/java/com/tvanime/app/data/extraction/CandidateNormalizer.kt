@@ -28,6 +28,7 @@ class CandidateNormalizer @Inject constructor(
 
         val server = serverClassifier.classify(absoluteUrl, explicitFormat)
         if (server.id == "directo" && server.format == "file" && !hasPlayableExtension(absoluteUrl)) return null
+        val quality = detectQuality(absoluteUrl, label)
         val mediaType = when (server.format) {
             "audio" -> "audio"
             else -> "video"
@@ -41,6 +42,7 @@ class CandidateNormalizer @Inject constructor(
             referer = pageUrl.toString(),
             label = label.ifBlank { server.label },
             server = server.id,
+            quality = quality,
             isDirect = server.isDirect,
             requiresResolver = server.requiresResolver,
             headers = mapOf("Referer" to pageUrl.toString()),
@@ -111,12 +113,20 @@ class CandidateNormalizer @Inject constructor(
 
     private fun isNoise(url: String): Boolean {
         val lower = url.lowercase()
-        return NOISE_TOKENS.any { lower.contains(it) } || lower.startsWith("blob:") || lower.startsWith("javascript:")
+        return NOISE_TOKENS.any { lower.contains(it) } ||
+            ASSET_EXTENSIONS.any { lower.substringBefore('?').endsWith(it) } ||
+            lower.startsWith("blob:") ||
+            lower.startsWith("javascript:")
     }
 
     private fun hasPlayableExtension(url: String): Boolean {
         val lower = url.lowercase()
         return listOf(".m3u8", ".mp4", ".webm", ".mkv", ".mp3", ".aac", ".m4a", ".ogg").any { lower.contains(it) }
+    }
+
+    private fun detectQuality(url: String, label: String): String? {
+        val value = "$url $label"
+        return QUALITY_PATTERN.find(value)?.value?.lowercase()
     }
 
     companion object {
@@ -125,6 +135,7 @@ class CandidateNormalizer @Inject constructor(
             "https?://[^\\s\\\"'<>]+\\.(?:m3u8|mp4|webm|mkv|mp3|aac|m4a|ogg)[^\\s\\\"'<>]*",
             RegexOption.IGNORE_CASE
         )
+        private val QUALITY_PATTERN = Regex("(?:2160p|1440p|1080p|720p|480p|360p|4k|fhd|hd|sd)", RegexOption.IGNORE_CASE)
         private val NOISE_TOKENS = listOf(
             "cloudflareinsights",
             "google-analytics",
@@ -134,7 +145,19 @@ class CandidateNormalizer @Inject constructor(
             ".js?",
             "analytics",
             "pixel",
-            "placeholder"
+            "placeholder",
+            "favicon",
+            "apple-touch-icon",
+            "manifest.json",
+            "browserconfig",
+            "mstile",
+            "sprite",
+            "logo",
+            "banner"
+        )
+        private val ASSET_EXTENSIONS = listOf(
+            ".ico", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif",
+            ".css", ".js", ".json", ".xml", ".woff", ".woff2", ".ttf", ".map"
         )
     }
 }

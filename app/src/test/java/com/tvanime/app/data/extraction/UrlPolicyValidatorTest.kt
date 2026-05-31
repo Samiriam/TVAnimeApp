@@ -13,9 +13,10 @@ class UrlPolicyValidatorTest {
         assertEquals("example.com", uri.host)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsHttpUrl() {
-        validator.validate("http://example.com/page")
+    @Test
+    fun acceptsPublicHttpUrl() {
+        val uri = validator.validate("http://example.com/page")
+        assertEquals("example.com", uri.host)
     }
 
     @Test(expected = IllegalArgumentException::class)

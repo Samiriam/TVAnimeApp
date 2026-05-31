@@ -52,6 +52,24 @@ class CandidateNormalizerTest {
     }
 
     @Test
+    fun rejectsFaviconAndImageAssets() {
+        val favicon = normalizer.normalize(
+            rawUrl = "https://example.com/favicon.ico",
+            pageUrl = URI("https://example.com/watch"),
+            sourceName = "test",
+            explicitFormat = "embed"
+        )
+        val poster = normalizer.normalize(
+            rawUrl = "https://example.com/poster-1080p.jpg",
+            pageUrl = URI("https://example.com/watch"),
+            sourceName = "test"
+        )
+
+        assertNull(favicon)
+        assertNull(poster)
+    }
+
+    @Test
     fun extractsNestedPlayableUrlFromEncodedQuery() {
         val candidate = normalizer.normalize(
             rawUrl = "https://player.example.com/embed?url=https%3A%2F%2Fcdn.example.com%2Fnested.m3u8%3Ftoken%3Dabc",

@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -52,7 +54,12 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onContentSelected: (ContentItem) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -111,7 +118,12 @@ fun ExtractMediaScreen(
     onExtract: () -> Unit,
     onPlayCandidate: (String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp)
+    ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
         }
@@ -119,7 +131,7 @@ fun ExtractMediaScreen(
         Text("Analizar pagina publica", style = MaterialTheme.typography.headlineMedium, color = Color.White)
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Primer extractor generico: detecta enlaces HLS, MP4, audio y embeds visibles en el HTML publico.",
+            text = "Pega una pagina o un enlace directo HLS/MP4. La app prioriza resultados reproducibles y oculta assets basura.",
             color = Color.White.copy(alpha = 0.8f)
         )
         Spacer(Modifier.height(20.dp))
@@ -128,11 +140,24 @@ fun ExtractMediaScreen(
             value = uiState.pageUrl,
             onValueChange = onUrlChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("URL publica") },
-            placeholder = { Text("https://example.com/page") },
+            label = { Text("Pagina o video directo") },
+            placeholder = { Text("https://sitio.com/ver/capitulo o https://cdn.com/video.m3u8") },
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
             singleLine = true
         )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AssistChip(
+                onClick = { onUrlChanged("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") },
+                label = { Text("MP4 reproducible") }
+            )
+            AssistChip(
+                onClick = { onUrlChanged("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8") },
+                label = { Text("HLS reproducible") }
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -156,10 +181,21 @@ fun ExtractMediaScreen(
             Text(result.sourceHost, color = Color.White.copy(alpha = 0.7f))
             Spacer(Modifier.height(16.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(result.candidates) { candidate ->
+            val playableCandidates = result.candidates.filter { it.isDirect && it.format != "embed" }
+            val fallbackCandidates = result.candidates.filterNot { it in playableCandidates }
+            val visibleCandidates = if (playableCandidates.isNotEmpty()) playableCandidates else fallbackCandidates
+
+            Text(
+                text = if (playableCandidates.isNotEmpty()) "Listo para reproducir" else "Detectado, pero requiere resolver",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Spacer(Modifier.height(10.dp))
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(visibleCandidates) { candidate ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.width(420.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF171725))
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
@@ -170,7 +206,7 @@ fun ExtractMediaScreen(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = if (candidate.requiresResolver) "Requiere resolver" else "Directo · prioridad ${candidate.priority}",
+                                text = if (candidate.requiresResolver) "Embed detectado" else "Reproducible directo",
                                 color = Color.White.copy(alpha = 0.65f),
                                 maxLines = 1
                             )
@@ -202,7 +238,12 @@ fun SettingsScreen(
     onRecurringSitesChanged: (String) -> Unit,
     onSave: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp)
+    ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
         }
@@ -310,7 +351,12 @@ fun DetailScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp)
+    ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
         }
