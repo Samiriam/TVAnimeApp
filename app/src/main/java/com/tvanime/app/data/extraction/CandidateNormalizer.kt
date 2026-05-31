@@ -27,7 +27,11 @@ class CandidateNormalizer @Inject constructor(
         if (isNoise(absoluteUrl)) return null
 
         val server = serverClassifier.classify(absoluteUrl, explicitFormat)
-        if (server.id == "directo" && server.format == "file" && !hasPlayableExtension(absoluteUrl)) return null
+        
+        if (server.id == "directo" && server.format == "file" && !hasPlayableExtension(absoluteUrl)) {
+            if (!isEmbedUrl(absoluteUrl)) return null
+        }
+        
         val quality = detectQuality(absoluteUrl, label)
         val mediaType = when (server.format) {
             "audio" -> "audio"
@@ -49,6 +53,16 @@ class CandidateNormalizer @Inject constructor(
             priority = server.priority,
             diagnostics = diagnostics + "server=${server.id}"
         )
+    }
+    
+    private fun isEmbedUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return EMBED_SERVER_TOKENS.any { lower.contains(it) } ||
+            lower.contains("/embed") || 
+            lower.contains("/player") ||
+            lower.contains("/e/") ||
+            lower.contains("/v/") ||
+            lower.contains("/watch")
     }
 
     fun cleanUrl(rawUrl: String): String {
@@ -113,10 +127,19 @@ class CandidateNormalizer @Inject constructor(
 
     private fun isNoise(url: String): Boolean {
         val lower = url.lowercase()
+        
+        if (lower.startsWith("blob:") || lower.startsWith("javascript:") || lower.startsWith("data:")) return true
+        
+        if (EMBED_SERVER_TOKENS.any { lower.contains(it) }) return false
+        
+        if (lower.contains(".m3u8") || lower.contains(".mp4") || lower.contains(".webm") || 
+            lower.contains(".mkv") || lower.contains(".mp3") || lower.contains(".aac")) return false
+        
+        if (lower.contains("/embed") || lower.contains("/player") || lower.contains("/video") ||
+            lower.contains("/watch") || lower.contains("/stream") || lower.contains("/play")) return false
+        
         return NOISE_TOKENS.any { lower.contains(it) } ||
-            ASSET_EXTENSIONS.any { lower.substringBefore('?').endsWith(it) } ||
-            lower.startsWith("blob:") ||
-            lower.startsWith("javascript:")
+            ASSET_EXTENSIONS.any { lower.substringBefore('?').endsWith(it) }
     }
 
     private fun hasPlayableExtension(url: String): Boolean {
@@ -136,6 +159,17 @@ class CandidateNormalizer @Inject constructor(
             RegexOption.IGNORE_CASE
         )
         private val QUALITY_PATTERN = Regex("(?:2160p|1440p|1080p|720p|480p|360p|4k|fhd|hd|sd)", RegexOption.IGNORE_CASE)
+        
+        private val EMBED_SERVER_TOKENS = listOf(
+            "streamtape", "streamwish", "voe", "mixdrop", "doodstream", "ok.ru", "yourupload",
+            "fembed", "streamsb", "vidmoly", "uqload", "sendvid", "mediafire", "mp4upload",
+            "jwplayer", "dailymotion", "blogger", "archive.org", "filemoon", "streamlare",
+            "vidlox", "upstream", "wolfstream", "vidcloud", "streamhub", "streamsss",
+            "vidsrc", "2embed", "multiembed", "embedsu", "vidplay", "filelions",
+            "vidsrc.to", "vidsrc.me", "vidsrc.cc", "embed.su", "multiup", "rapidvid",
+            "vidbox", "streamvid", "streamplay", "playhydrax", "hydrax", "vidsrc.xyz"
+        )
+        
         private val NOISE_TOKENS = listOf(
             "cloudflareinsights",
             "google-analytics",
