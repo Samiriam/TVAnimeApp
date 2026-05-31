@@ -78,7 +78,11 @@ fun TVAnimeNavHost(
                         "&headers=" + Uri.encode(headers.entries.joinToString(",") { "${it.key}=${it.value}" })
                     } else ""
                     navController.navigate("player/${Uri.encode(candidateUrl)}$headersParam")
-                }
+                },
+                onSearchQueryChanged = vm::updateSearchQuery,
+                onSiteSelected = vm::selectSite,
+                onAutoAnalyze = vm::autoAnalyzePopularSites,
+                onToggleSuggestions = vm::toggleSuggestions
             )
         }
 

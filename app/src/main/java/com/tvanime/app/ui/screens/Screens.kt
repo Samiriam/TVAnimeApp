@@ -118,7 +118,11 @@ fun ExtractMediaScreen(
     onBack: () -> Unit,
     onUrlChanged: (String) -> Unit,
     onExtract: () -> Unit,
-    onPlayCandidate: (String, Map<String, String>) -> Unit
+    onPlayCandidate: (String, Map<String, String>) -> Unit,
+    onSearchQueryChanged: (String) -> Unit = {},
+    onSiteSelected: (com.tvanime.app.ui.components.SiteSuggestion) -> Unit = {},
+    onAutoAnalyze: () -> Unit = {},
+    onToggleSuggestions: (Boolean) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -126,118 +130,209 @@ fun ExtractMediaScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(24.dp)
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+            }
+            Text(
+                "Explorador Web",
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White
+            )
+            IconButton(onClick = { onToggleSuggestions(!uiState.showSuggestions) }) {
+                Icon(
+                    if (uiState.showSuggestions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Toggle sugerencias",
+                    tint = Color.White
+                )
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("Analizar pagina publica", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Pega una pagina o un enlace directo HLS/MP4. La app prioriza resultados reproducibles y oculta assets basura.",
-            color = Color.White.copy(alpha = 0.8f)
-        )
-        Spacer(Modifier.height(20.dp))
+
+        Spacer(Modifier.height(16.dp))
 
         OutlinedTextField(
             value = uiState.pageUrl,
             onValueChange = onUrlChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Pagina o video directo") },
+            label = { Text("URL de página o video directo") },
             placeholder = { Text("https://sitio.com/ver/capitulo o https://cdn.com/video.m3u8") },
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
-            singleLine = true
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White) },
+            trailingIcon = {
+                if (uiState.pageUrl.isNotBlank()) {
+                    IconButton(onClick = { onUrlChanged("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Limpiar", tint = Color.White)
+                    }
+                }
+            }
         )
 
         Spacer(Modifier.height(12.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AssistChip(
-                onClick = { onUrlChanged("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4") },
-                label = { Text("MP4 reproducible") }
-            )
-            AssistChip(
-                onClick = { onUrlChanged("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8") },
-                label = { Text("HLS reproducible") }
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onExtract,
+                enabled = !uiState.isLoading && uiState.pageUrl.isNotBlank(),
+                modifier = Modifier.weight(1f)
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.size(8.dp))
+                } else {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                }
+                Text("Analizar")
+            }
+
+            OutlinedButton(
+                onClick = onAutoAnalyze,
+                enabled = !uiState.isLoading,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Auto-analizar")
+            }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        FilledTonalButton(onClick = onExtract, enabled = !uiState.isLoading) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.size(8.dp))
+        uiState.autoAnalyzeProgress?.let { progress ->
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(progress, style = MaterialTheme.typography.bodySmall, color = Color.White)
+                }
             }
-            Text("Analizar")
         }
 
         uiState.error?.let {
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (uiState.showSuggestions && uiState.result == null) {
             Spacer(Modifier.height(16.dp))
-            Text(it, color = MaterialTheme.colorScheme.error)
+            Text(
+                "Sitios populares",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChanged,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Buscar sitio...") },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White) }
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            com.tvanime.app.ui.components.WebSearchSuggestions(
+                query = uiState.searchQuery,
+                onSiteSelected = onSiteSelected,
+                modifier = Modifier.weight(1f)
+            )
         }
 
         uiState.result?.let { result ->
             Spacer(Modifier.height(20.dp))
-            Text(result.title, style = MaterialTheme.typography.titleLarge, color = Color.White)
-            Spacer(Modifier.height(6.dp))
-            Text(result.sourceHost, color = Color.White.copy(alpha = 0.7f))
+
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        result.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White.copy(alpha = 0.7f)
+                        )
+                        Text(result.sourceHost, color = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
 
             val playableCandidates = result.candidates.filter { it.isDirect && it.format != "embed" }
             val fallbackCandidates = result.candidates.filterNot { it in playableCandidates }
             val visibleCandidates = if (playableCandidates.isNotEmpty()) playableCandidates else fallbackCandidates
 
-            Text(
-                text = if (playableCandidates.isNotEmpty()) "Listo para reproducir (${playableCandidates.size})" else "Detectado, pero requiere resolver",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
-            )
-            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (playableCandidates.isNotEmpty()) {
+                        "✓ ${playableCandidates.size} listo(s) para reproducir"
+                    } else {
+                        "⚠ ${fallbackCandidates.size} detectado(s), requiere resolver"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (playableCandidates.isNotEmpty()) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                )
+                Text(
+                    "${result.candidates.size} total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+            }
 
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Spacer(Modifier.height(12.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(end = 24.dp)
+            ) {
                 items(visibleCandidates) { candidate ->
-                    val badge = buildCandidateBadge(candidate)
-                    Card(
-                        modifier = Modifier.width(420.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF171725))
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                text = "$badge · ${candidate.server}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                candidate.quality?.let { q ->
-                                    AssistChip(onClick = {}, label = { Text(q.uppercase()) })
-                                }
-                                if (candidate.isDirect) {
-                                    AssistChip(onClick = {}, label = { Text("Directo") })
-                                } else {
-                                    AssistChip(onClick = {}, label = { Text("Embed") })
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Text(candidate.url, color = Color.White.copy(alpha = 0.75f), maxLines = 3)
-                            if (candidate.diagnostics.isNotEmpty()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    candidate.diagnostics.take(2).joinToString(" | "),
-                                    color = Color.White.copy(alpha = 0.4f),
-                                    maxLines = 1,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            FilledTonalButton(
-                                onClick = { onPlayCandidate(candidate.url, candidate.headers) },
-                                enabled = candidate.format != "embed"
-                            ) {
-                                Text(if (candidate.format == "embed") "Embed no directo" else "Reproducir")
-                            }
-                        }
-                    }
+                    com.tvanime.app.ui.components.CandidateCard(
+                        candidate = candidate,
+                        onPlayClick = { onPlayCandidate(candidate.url, candidate.headers) }
+                    )
                 }
             }
         }
