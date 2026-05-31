@@ -451,6 +451,7 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `EmbedResolverRegistry.kt`, `ExtractionRepositoryImpl.kt`, `HtmlMediaExtractor.kt`, `RecurringSitesStore.kt`, `RecurringSitesSyncScheduler.kt`, `RecurringSitesSyncWorker.kt`, `TVAnimeApp.kt`, `SettingsViewModel.kt`, `Screens.kt`, `TVAnimeNavHost.kt` | Se agrego resolucion generica de embeds HTML, extraccion desde scripts/atributos `data-*`, configuracion de sitios recurrentes y sync periodica cada 6h para guardar candidatos directos en catalogo | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
 | 2026-05-30 | `HtmlMediaExtractorTest.kt`, `EmbedResolverRegistryTest.kt` | Se agregaron pruebas para patrones `script`/`data-*` y resolucion de embeds; un primer test detecto que `data-file` relativo no se normalizaba y se corrigio la implementacion | `testDebugUnitTest` exitoso | ✅ |
 | 2026-05-30 | `CandidateNormalizer.kt`, `HtmlMediaExtractor.kt`, `EmbedResolverRegistry.kt`, `ServerClassifier.kt`, tests de extraction | Se endurecio scraping estilo `servertools`: atributos amplios, HTML/JS/JSON completo, meta refresh, URLs escapadas, URLs anidadas codificadas, base64/URL-safe sin padding, `atob`, `data-embed`, `decodeURIComponent`, template strings y nuevos hosts embed | `testDebugUnitTest` y `assembleDebug` exitosos | ✅ |
+| 2026-05-30 | `ServerSpecificResolvers.kt`, `CandidateScorer.kt`, `EmbedResolverRegistry.kt`, `ExtractionRepositoryImpl.kt`, `CandidateNormalizer.kt`, `DetectedMedia.kt`, `Screens.kt`, `TVAnimeNavHost.kt`, `libs.versions.toml`, `app/build.gradle.kts` | Mejoras de scraping basadas en 3 repos de referencia (anime1v-api, balandro-stremio, NebulaStreams-V2): resolvers especificos para 18 servidores, scoring de compatibilidad, headers al reproductor ExoPlayer, deduplicacion inteligente, concurrencia en resolucion, filtro anti-basura ampliado, UI con badges | `assembleDebug` exitoso (14.4 MB) | ✅ |
 
 ## Pruebas Y Builds
 
@@ -465,13 +466,14 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras resolver embeds y sitios recurrentes | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:11:07`) | Probar instalacion y flujo en Android TV/emulador |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat testDebugUnitTest` | Primer intento fallo por captura demasiado amplia de URL anidada (`player?url=https://cdn...`); se corrigio para preferir la URL interna y el ultimo intento paso con 15 tests | No aplica | Probar con las 3 paginas reportadas por el usuario desde el APK |
 | 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso tras scraping agresivo sin cambios de UI adicionales | `app/build/outputs/apk/debug/app-debug.apk` (`14423571` bytes, `2026-05-30 22:48:14`) | Instalar y validar en Android TV real/emulador |
+| 2026-05-30 | `JAVA_HOME=C:\Users\informatica\AppData\Local\Temp\kilo\jdk17\jdk-17.0.19+10` + `./gradlew.bat assembleDebug` | Build exitoso con resolvers especificos, scoring, headers al reproductor y mejoras de UI | `app/build/outputs/apk/debug/app-debug.apk` (`14424977` bytes, `2026-05-30 23:37:15`) | Probar resolvers de Streamtape/Streamwish/VOE/Mixdrop en Android TV real/emulador |
 
 ## Estado Actual
 
 ### Funciona
 
 - Compilacion `debug` reproducible con JDK 17 local temporal.
-- APK `debug` generado en `app/build/outputs/apk/debug/app-debug.apk`.
+- APK `debug` generado en `app/build/outputs/apk/debug/app-debug.apk` (14.4 MB).
 - Configuracion del origen M3U desde UI con opcion demo local o URL remota.
 - Sincronizacion inmediata y periodica con WorkManager al guardar ajustes y al iniciar la app.
 - Pantalla `Analizar URL` disponible desde Home.
@@ -484,6 +486,14 @@ Criterio de salida: APK verificable, limitado y sin secretos en el repo.
 - `mediaType = "OTHER"` fue revisado contra DTO, mapper, enum y sync M3U existente; es compatible con el flujo actual.
 - El extractor ahora busca candidatos en atributos amplios, HTML completo, scripts, JSON embebido, meta refresh, URLs escapadas `https:\/\/`, URLs anidadas en query string, URL encoding, base64 URL-safe sin padding, `atob(...)`, `decodeURIComponent(...)` y template strings.
 - `ServerClassifier` agrega hosts embed adicionales: StreamSB, Vidmoly, Uqload, Fembed, Sendvid y MediaFire.
+- **Resolvers especificos por servidor**: `ServerSpecificResolvers` implementa logica dedicada para 18 servidores (Streamtape, Streamwish, VOE, Mixdrop, Doodstream, Okru, YourUpload, Fembed, StreamSB, Vidmoly, Uqload, Sendvid, MediaFire, MP4Upload, JWPlayer, JWP, Dailymotion, Blogger) con patrones regex especificos por host.
+- **Scoring de compatibilidad**: `CandidateScorer` prioriza candidatos usando transport (MP4>HLS>WEBM>MKV), calidad (2160p>1080p>720p), codec (H264>AAC penaliza HEVC/HDR), servidor (directo>HLS>embed) y penalizaciones (no-direct, resolver_error).
+- **Headers al reproductor**: ExoPlayer ahora recibe headers personalizados (Referer, User-Agent) via `DefaultHttpDataSource.Factory` para CDNs que requieren autenticacion.
+- **Deduplicacion inteligente**: `ExtractionRepositoryImpl` deduplica por filename normalizado + host + calidad, no solo URL exacta.
+- **Concurrencia en resolucion**: `EmbedResolverRegistry.resolveAll()` usa `coroutineScope` + `async` para resolver embeds en paralelo.
+- **Deteccion de redirects**: `EmbedResolverRegistry` detecta `window.location.href` y `window.location` en HTML de embeds.
+- **Filtro anti-basura ampliado**: `CandidateNormalizer` bloquea trackers, ads, analytics, chatbots, assets no reproducibles (30+ tokens adicionales).
+- **UI mejorada**: `ExtractMediaScreen` muestra badges de formato/calidad, diagnostico visible, contador de candidatos reproducibles y pasa headers al player.
 
 ### No Funciona
 
