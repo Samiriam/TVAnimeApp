@@ -48,16 +48,18 @@ import com.tvanime.app.ui.viewmodel.SettingsUiState
 
 // ── Cinematic tokens ──
 private val FocusRing = Color(0xFF00CED1)
+private val FocusBg = Color(0x1A00CED1)
 private val GlassBg = Color(0xCC1D2022)
 private val GlassBorder = Color(0x333B4949)
 private val ChipBg = Color(0x991D2022)
 
 @Composable
-private fun focusRingMod(focused: Boolean, modifier: Modifier, scale: Float = 1.04f) = modifier
+private fun focusRingMod(focused: Boolean, modifier: Modifier, scale: Float = 1.05f) = modifier
     .focusable()
     .onFocusChanged {}
     .scale(if (focused) scale else 1f)
-    .border(if (focused) 4.dp else 0.dp, if (focused) FocusRing else Color.Transparent, RoundedCornerShape(16.dp))
+    .border(if (focused) BorderStroke(5.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(14.dp))
+    .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(14.dp))
 
 // ─────────────────────────────────────────────────────────────────
 // HomeScreen
@@ -156,12 +158,12 @@ fun HomeScreen(
                         var focused by remember { mutableStateOf(false) }
                         Card(
                             onClick = { onContentSelected(item) },
-                            modifier = Modifier.width(320.dp).then(
-                                if (focused) Modifier.scale(1.08f).border(4.dp, FocusRing, RoundedCornerShape(16.dp))
-                                else Modifier
-                            ).focusable().onFocusChanged { focused = it.isFocused },
+                            modifier = Modifier.width(320.dp).focusable().onFocusChanged { focused = it.isFocused }
+                                .scale(if (focused) 1.08f else 1f)
+                                .border(if (focused) BorderStroke(5.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(16.dp))
+                                .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(16.dp)),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = surfV.copy(alpha = 0.7f))
+                            colors = CardDefaults.cardColors(containerColor = surfV.copy(alpha = if (focused) 1f else 0.7f))
                         ) {
                             Column(Modifier.padding(20.dp)) {
                                 Text(item.title, style = MaterialTheme.typography.titleLarge,
@@ -182,19 +184,26 @@ private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label
                     active: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val prim = MaterialTheme.colorScheme.primary
-    val bg = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else Color.Transparent
-    val fg = if (active) prim else MaterialTheme.colorScheme.onSurfaceVariant
+    val bg = when {
+        focused -> FocusBg
+        active -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+        else -> Color.Transparent
+    }
+    val fg = if (focused || active) prim else MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().then(if (focused) Modifier.border(3.dp, prim, RoundedCornerShape(12.dp)) else Modifier)
-            .focusable().onFocusChanged { focused = it.isFocused }.scale(if (focused) 1.06f else 1f),
+        modifier = Modifier.fillMaxWidth()
+            .focusable().onFocusChanged { focused = it.isFocused }
+            .scale(if (focused) 1.04f else 1f)
+            .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
+            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp), color = bg
     ) {
         Row(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(icon, null, Modifier.size(24.dp), tint = fg)
-            Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }
@@ -210,16 +219,19 @@ private fun CinematicButton(text: String, icon: androidx.compose.ui.graphics.vec
         modifier = Modifier.run {
             val m = focusable().onFocusChanged { focused = it.isFocused }
                 .scale(if (focused) 1.06f else 1f)
-                .border(if (focused) 3.dp else 1.dp, if (focused) prim else GlassBorder, RoundedCornerShape(12.dp))
+                .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(1.dp, GlassBorder), RoundedCornerShape(14.dp))
+                .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(14.dp))
             if (focusReq != null) focusRequester(focusReq) else m
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, GlassBorder),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = if (focused) prim else MaterialTheme.colorScheme.onSurface
+        )
     ) {
         Icon(icon, null, Modifier.size(20.dp))
         Spacer(Modifier.size(8.dp))
-        Text(text)
+        Text(text, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal)
     }
 }
 
@@ -275,18 +287,20 @@ fun ExtractMediaScreen(
 
             FilledTonalButton(onClick = onExtract, enabled = !uiState.isLoading && uiState.pageUrl.isNotBlank(),
                 modifier = Modifier.weight(1f).focusable().onFocusChanged { f1 = it.isFocused }
-                    .border(if (f1) 3.dp else 0.dp, if (f1) prim else Color.Transparent, RoundedCornerShape(14.dp)),
+                    .border(if (f1) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(14.dp))
+                    .background(if (f1) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
                 shape = RoundedCornerShape(14.dp)) {
                 if (uiState.isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp)); Text("Analizar")
+                Spacer(Modifier.size(8.dp)); Text("Analizar", fontWeight = if (f1) FontWeight.Bold else FontWeight.Normal)
             }
             OutlinedButton(onClick = onAutoAnalyze, enabled = !uiState.isLoading,
                 modifier = Modifier.weight(1f).focusable().onFocusChanged { f2 = it.isFocused }
-                    .border(if (f2) 3.dp else 0.dp, if (f2) prim else Color.Transparent, RoundedCornerShape(14.dp)),
+                    .border(if (f2) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(14.dp))
+                    .background(if (f2) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
                 shape = RoundedCornerShape(14.dp)) {
                 Icon(Icons.Default.Star, null, Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp)); Text("Auto")
+                Spacer(Modifier.size(8.dp)); Text("Auto", fontWeight = if (f2) FontWeight.Bold else FontWeight.Normal)
             }
         }
 
@@ -359,8 +373,9 @@ private fun CandidateCard(c: DetectedMedia, onPlay: () -> Unit) {
     Card(onClick = onPlay,
         modifier = Modifier.width(360.dp).focusable().onFocusChanged { focused = it.isFocused }
             .scale(if (focused) 1.08f else 1f)
-            .border(if (focused) 4.dp else 0.dp, if (focused) FocusRing else Color.Transparent, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = surf.copy(alpha = 0.6f))
+            .border(if (focused) BorderStroke(5.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(16.dp))
+            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = surf.copy(alpha = if (focused) 1f else 0.6f))
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
@@ -393,7 +408,8 @@ private fun FocusableIconButton(onClick: () -> Unit, icon: androidx.compose.ui.g
     var focused by remember { mutableStateOf(false) }
     val prim = MaterialTheme.colorScheme.primary
     IconButton(onClick = onClick, modifier = Modifier.focusable().onFocusChanged { focused = it.isFocused }
-        .border(if (focused) 3.dp else 0.dp, if (focused) prim else Color.Transparent, RoundedCornerShape(10.dp))
+        .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+        .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
     ) { Icon(icon, "Volver", tint = if (focused) prim else MaterialTheme.colorScheme.onSurface) }
 }
 
@@ -417,10 +433,14 @@ fun SettingsScreen(
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onSelectDemo,
-                modifier = Modifier.focusable().onFocusChanged { fd = it.isFocused }.border(if (fd) 3.dp else 0.dp, if (fd) prim else Color.Transparent, RoundedCornerShape(10.dp)),
+                modifier = Modifier.focusable().onFocusChanged { fd = it.isFocused }
+                    .border(if (fd) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+                    .background(if (fd) FocusBg else Color.Transparent, RoundedCornerShape(10.dp)),
                 shape = RoundedCornerShape(10.dp)) { Text("Demo local") }
             OutlinedButton(onClick = onSelectRemoteUrl,
-                modifier = Modifier.focusable().onFocusChanged { fu = it.isFocused }.border(if (fu) 3.dp else 0.dp, if (fu) prim else Color.Transparent, RoundedCornerShape(10.dp)),
+                modifier = Modifier.focusable().onFocusChanged { fu = it.isFocused }
+                    .border(if (fu) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+                    .background(if (fu) FocusBg else Color.Transparent, RoundedCornerShape(10.dp)),
                 shape = RoundedCornerShape(10.dp)) { Text("URL remota") }
         }
         if (uiState.selectedSource == PlaylistSource.REMOTE_URL) {
@@ -437,8 +457,10 @@ fun SettingsScreen(
             shape = RoundedCornerShape(10.dp), maxLines = 8)
         Spacer(Modifier.height(20.dp))
         FilledTonalButton(onClick = onSave,
-            modifier = Modifier.focusable().onFocusChanged { fs = it.isFocused }.border(if (fs) 3.dp else 0.dp, if (fs) prim else Color.Transparent, RoundedCornerShape(14.dp)),
-            shape = RoundedCornerShape(14.dp)) { Text("Guardar y sincronizar") }
+            modifier = Modifier.focusable().onFocusChanged { fs = it.isFocused }
+                .border(if (fs) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(14.dp))
+                .background(if (fs) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(14.dp)) { Text("Guardar y sincronizar", fontWeight = if (fs) FontWeight.Bold else FontWeight.Normal) }
     }
 }
 
@@ -459,12 +481,16 @@ fun DetailScreen(contentItem: ContentItem?, isFavorite: Boolean, onPlayClick: ()
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 FilledTonalButton(onClick = onPlayClick,
-                    modifier = Modifier.focusable().onFocusChanged { fp = it.isFocused }.border(if (fp) 3.dp else 0.dp, if (fp) prim else Color.Transparent, RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text("Reproducir") }
+                    modifier = Modifier.focusable().onFocusChanged { fp = it.isFocused }
+                        .border(if (fp) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(16.dp))
+                        .background(if (fp) FocusBg else Color.Transparent, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text("Reproducir", fontWeight = if (fp) FontWeight.Bold else FontWeight.Normal) }
                 OutlinedButton(onClick = onToggleFavorite,
-                    modifier = Modifier.focusable().onFocusChanged { ff = it.isFocused }.border(if (ff) 3.dp else 0.dp, if (ff) prim else Color.Transparent, RoundedCornerShape(16.dp)),
+                    modifier = Modifier.focusable().onFocusChanged { ff = it.isFocused }
+                        .border(if (ff) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color(0xFF47EAED)))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(16.dp))
+                        .background(if (ff) FocusBg else Color.Transparent, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp)) {
-                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text(if (isFavorite) "Quitar" else "Favorito") }
+                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, Modifier.size(20.dp)); Spacer(Modifier.size(8.dp)); Text(if (isFavorite) "Quitar" else "Favorito", fontWeight = if (ff) FontWeight.Bold else FontWeight.Normal) }
             }
         }
     }
@@ -498,16 +524,22 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
                 layoutParams = ViewGroup.LayoutParams(-1, -1) } }, modifier = Modifier.fillMaxSize())
         androidx.compose.animation.AnimatedVisibility(visible = showControls, modifier = Modifier.align(Alignment.BottomCenter),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.SpaceEvenly) {
+Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.SpaceEvenly) {
                 var a by remember { mutableStateOf(false) }; var b by remember { mutableStateOf(false) }; var c by remember { mutableStateOf(false) }
                 IconButton(onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0)) },
-                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { a = it.isFocused }.border(if (a) 3.dp else 0.dp, if (a) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { a = it.isFocused }
+                        .border(if (a) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color.White))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+                        .background(if (a) Color(0x33FFFFFF) else Color.Transparent, RoundedCornerShape(10.dp)))
                 { Text("\u23EA", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
                 IconButton(onClick = { if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play() },
-                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { b = it.isFocused }.border(if (b) 3.dp else 0.dp, if (b) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { b = it.isFocused }
+                        .border(if (b) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color.White))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+                        .background(if (b) Color(0x33FFFFFF) else Color.Transparent, RoundedCornerShape(10.dp)))
                 { Text(if (exoPlayer.isPlaying) "\u23F8" else "\u25B6", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
                 IconButton(onClick = { exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(duration)) },
-                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { c = it.isFocused }.border(if (c) 3.dp else 0.dp, if (c) Color.White else Color.Transparent, RoundedCornerShape(10.dp)))
+                    modifier = Modifier.size(56.dp).focusable().onFocusChanged { c = it.isFocused }
+                        .border(if (c) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusRing, Color.White))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+                        .background(if (c) Color(0x33FFFFFF) else Color.Transparent, RoundedCornerShape(10.dp)))
                 { Text("\u23E9", color = Color.White, style = MaterialTheme.typography.headlineSmall) }
             }
         }
