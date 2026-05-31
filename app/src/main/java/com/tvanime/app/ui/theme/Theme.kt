@@ -5,7 +5,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// ── Cinematic Vision palette ──
 private val Surface         = Color(0xFF101415)
 private val SurfaceDim      = Color(0xFF101415)
 private val SurfaceBright   = Color(0xFF363A3B)
@@ -29,6 +28,11 @@ private val Error           = Color(0xFFFFB4AB)
 private val OnError         = Color(0xFF690005)
 private val ErrorContainer  = Color(0xFF93000A)
 private val OnErrorContainer = Color(0xFFFFDAD6)
+
+val FocusCyan = Color(0xFF00CED1)
+val FocusGlow = Color(0xFF47EAED)
+val FocusHighlight = Color(0x33FFFFFF)
+val FocusBg = Color(0x2200CED1)
 
 private val CinematicColors = darkColorScheme(
     primary             = Primary,
