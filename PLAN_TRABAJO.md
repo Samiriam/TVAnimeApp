@@ -114,6 +114,8 @@ TVAnimeApp/
 | 2026-05-17 | MediaType enum con @Parcelize redundante | Warning KSP | Eliminado, movido a archivo separado | ✅ Resuelto |
 | 2026-05-17 | Falta ic_launcher.xml (mipmap) y @drawable/ic_banner | Error AAPT2 | Creados adaptive icons y banner XML | ✅ Resuelto |
 | 2026-05-17 | Falta proguard-rules.pro | Error release build | Creado con reglas Room/Hilt/ViewModel | ✅ Resuelto |
+| 2026-05-29 | Entorno de build en Windows sin Git/JDK/Android SDK | No habia toolchain listo para Gradle | Instalado JDK 17 en D:, Android SDK en D: y configurado local.properties | ✅ Resuelto |
+| 2026-05-29 | Build debug detiene en `parseDebugLocalResources` | Gradle reporta `Failed to create MD5 hash for file content` | Se relanzo build desde ruta limpia `D:\TVAnimeApp` para aislar el problema de ruta | 🟡 En progreso |
 
 ## Flujo de fuentes M3U
 

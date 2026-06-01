@@ -1,5 +1,10 @@
-﻿*.apk
+*.apk
 build/
 .gradle/
 .idea/
 local.properties
+app/build/
+*.log
+build_log.txt
+build_err.txt
+build_apk.bat
