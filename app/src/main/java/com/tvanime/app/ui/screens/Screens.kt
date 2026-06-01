@@ -321,8 +321,9 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
     var isPlaying by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
 
-    val exoPlayer = remember(videoUrl) {
+    val exoPlayer = remember(videoUrl, headers) {
         val factory = DefaultHttpDataSource.Factory().apply { if (headers.isNotEmpty()) setDefaultRequestProperties(headers) }
         ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(factory))
             .build().apply { setMediaItem(MediaItem.Builder().setUri(videoUrl).build()); prepare(); playWhenReady = true }
@@ -332,6 +333,7 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
         val l = object : Player.Listener {
             override fun onIsPlayingChanged(p: Boolean) { isPlaying = p }
             override fun onPlaybackStateChanged(s: Int) { currentPosition = exoPlayer.currentPosition; duration = exoPlayer.duration }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) { playbackError = error.message ?: "No se pudo reproducir el stream" }
         }; exoPlayer.addListener(l); onDispose { exoPlayer.removeListener(l) }
     }
     LaunchedEffect(showControls) { if (showControls) { kotlinx.coroutines.delay(4000); showControls = false } }
@@ -347,6 +349,21 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
                 PlayerControlButton(Icons.Default.Home, { exoPlayer.seekTo(0) })
                 PlayerControlButton(if (isPlaying) Icons.Default.Star else Icons.Default.Home, { if (isPlaying) exoPlayer.pause() else exoPlayer.play() })
                 PlayerControlButton(Icons.Default.Home, { exoPlayer.seekTo(duration) })
+            }
+        }
+
+        playbackError?.let { error ->
+            Surface(
+                modifier = Modifier.align(Alignment.Center).padding(32.dp),
+                color = Color(0xDD1A1D21),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    text = "Error de reproducción\n$error",
+                    modifier = Modifier.padding(24.dp),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }

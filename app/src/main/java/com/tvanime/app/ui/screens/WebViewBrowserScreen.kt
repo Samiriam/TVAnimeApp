@@ -66,6 +66,18 @@ fun WebViewBrowserScreen(
         }
     }
 
+    DisposableEffect(webViewRef) {
+        onDispose {
+            webViewRef?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                clearHistory()
+                removeAllViews()
+                destroy()
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -125,7 +137,7 @@ fun WebViewBrowserScreen(
             AnimatedVisibility(visible = !showSiteSelector) {
                 UrlBar(
                     currentUrl = uiState.currentUrl,
-                    onUrlChanged = {},
+                    onUrlChanged = viewModel::setDefaultUrl,
                     onNavigate = { url ->
                         webViewRef?.loadUrl(url)
                         viewModel.addToHistory(url)
@@ -183,7 +195,8 @@ fun WebViewBrowserScreen(
             stream = detectedStream,
             isVisible = uiState.showOverlay,
             onPlayVideo = { url, headers ->
-                onPlayVideo(url, headers)
+                val mergedHeaders = viewModel.getPlaybackHeaders(url, detectedStream?.referer.orEmpty()) + headers
+                onPlayVideo(url, mergedHeaders)
                 viewModel.dismissOverlay()
             },
             onDismiss = { viewModel.dismissOverlay() },
@@ -317,6 +330,8 @@ private fun AndroidWebView(
                 settings.setGeolocationEnabled(false)
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
+                settings.userAgentString = com.tvanime.app.data.capture.WebViewSessionManager.USER_AGENT
+                android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
                 setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
 
@@ -383,6 +398,18 @@ private fun AndroidWebView(
                         if (request?.isForMainFrame == true) {
                             webViewError = "Error HTTP: ${errorResponse?.statusCode}"
                         }
+                    }
+
+                    override fun onRenderProcessGone(
+                        view: android.webkit.WebView?,
+                        detail: android.webkit.RenderProcessGoneDetail?
+                    ): Boolean {
+                        webViewError = "El motor WebView se reinicio"
+                        view?.apply {
+                            stopLoading()
+                            loadUrl("about:blank")
+                        }
+                        return true
                     }
                 }
 

@@ -1104,3 +1104,30 @@ Orden recomendado:
 2. Despues corregir riesgos tecnicos del auto-crawler/Room: migracion v1->v2, persistencia de categorias default, parseo de `evaluateJavascript()`, `videoUrl` vacio e IDs estables.
 3. Registrar evidencia de cada correccion: commit, build, prueba manual en Android TV/emulador y resultado.
 4. No marcar el auto-crawler como funcional hasta demostrar flujo completo: categoria habilitada -> crawl -> items en Room -> detalle -> reproduccion o apertura correcta del recurso.
+
+---
+
+## Robustecimiento Browser/WebView — 2026-06-01
+
+### Cambios aplicados localmente
+
+| Area | Cambio | Verificacion |
+|---|---|---|
+| Navegacion WebView | La barra URL ahora actualiza estado, normaliza URLs sin esquema y permite navegar con accion `Ir` / IME Go | `assembleDebug` exitoso |
+| WebView | Se agrego limpieza de ciclo de vida (`stopLoading`, `about:blank`, `clearHistory`, `removeAllViews`, `destroy`) y manejo de `onRenderProcessGone` | `assembleDebug` exitoso |
+| Sesion y headers | Se centralizo User-Agent, cookies de WebView y headers de reproduccion para pasar `Referer`, `User-Agent` y `Cookie` al player | `assembleDebug` exitoso |
+| Player | Se agrego visualizacion de errores de reproduccion y recreacion del player cuando cambian headers | `assembleDebug` exitoso |
+| Navegacion a Player | Headers se codifican como JSON Base64 URL-safe en query param, evitando romper rutas con `,`, `=` o cookies largas | `assembleDebug` exitoso |
+| Auto-crawler | Las categorias default se persisten en Room y el worker deja de insertar entradas sin URL reproducible hasta que exista resolver de detalle -> stream | `assembleDebug` exitoso |
+
+### Build local
+
+| Comando | Resultado | Artefacto |
+|---|---|---|
+| `gradlew.bat assembleDebug --no-daemon --console=plain` | Build exitoso en `1m 43s` | `app/build/outputs/apk/debug/app-debug.apk` (`14525399` bytes, `2026-06-01 10:55:04`) |
+
+### Pendiente posterior
+
+1. Probar en Android TV real o emulador: foco D-pad, WebView, overlay y Player.
+2. Implementar resolver real del auto-crawler para transformar `detailUrl` en `videoUrl`; mientras no exista, el worker no contamina Room con items no reproducibles.
+3. Revisar si conviene pasar headers al Player mediante `SavedStateHandle` si aparecen URLs/cookies demasiado largas para rutas de Navigation.

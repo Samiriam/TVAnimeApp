@@ -49,6 +49,7 @@ class CrawlerViewModel @Inject constructor(
 
             crawlCategoryDao.observeAll().collect { cats ->
                 val allCats = if (cats.isEmpty()) {
+                    defaultCats.forEach { crawlCategoryDao.insert(it) }
                     defaultCats
                 } else {
                     val existingCats = cats.associateBy { it.category }
@@ -67,7 +68,11 @@ class CrawlerViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = _uiState.value.categories.find { it.category == category }
             if (existing != null) {
-                crawlCategoryDao.setEnabled(category, enabled)
+                if (crawlCategoryDao.getByCategory(category) == null) {
+                    crawlCategoryDao.insert(existing.copy(enabled = enabled))
+                } else {
+                    crawlCategoryDao.setEnabled(category, enabled)
+                }
             } else {
                 crawlCategoryDao.insert(
                     CrawlCategoryEntity(

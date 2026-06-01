@@ -98,6 +98,10 @@ class WebViewBrowserViewModel @Inject constructor(
         return sessionManager.getCookiesForUrl(url)
     }
 
+    fun getPlaybackHeaders(url: String, referer: String): Map<String, String> {
+        return sessionManager.getPlaybackHeaders(url, referer)
+    }
+
     fun setDefaultUrl(url: String) {
         _uiState.update { it.copy(currentUrl = url) }
     }

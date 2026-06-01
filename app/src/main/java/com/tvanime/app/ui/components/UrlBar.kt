@@ -6,6 +6,8 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.BorderStroke
 import com.tvanime.app.ui.theme.FocusBg
@@ -39,6 +42,15 @@ fun UrlBar(
 ) {
     var urlText by remember(currentUrl) { mutableStateOf(currentUrl) }
     var urlFieldFocused by remember { mutableStateOf(false) }
+
+    fun navigateFromText() {
+        val raw = urlText.trim()
+        if (raw.isBlank()) return
+        val normalized = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+        urlText = normalized
+        onUrlChanged(normalized)
+        onNavigate(normalized)
+    }
 
     Row(
         modifier = modifier
@@ -68,6 +80,8 @@ fun UrlBar(
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = TextStyle(color = Color.White),
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { navigateFromText() }),
                 cursorBrush = SolidColor(FocusCyan),
                 decorationBox = { inner ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -94,6 +108,8 @@ fun UrlBar(
         }
 
         UrlBarButton(icon = Icons.Default.Home, label = "Inicio", enabled = true, onClick = onHomeClick)
+
+        UrlBarButton(icon = Icons.Default.PlayArrow, label = "Ir", enabled = urlText.isNotBlank(), onClick = { navigateFromText() })
 
         if (urlText.isNotBlank()) {
             var clearFocused by remember { mutableStateOf(false) }

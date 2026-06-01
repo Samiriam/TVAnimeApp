@@ -12,6 +12,7 @@ import com.tvanime.app.data.crawl.CrawlService
 import com.tvanime.app.data.local.dao.ContentDao
 import com.tvanime.app.data.local.dao.CrawlCategoryDao
 import com.tvanime.app.domain.model.CategoryConfig
+import com.tvanime.app.domain.model.CrawlItem
 import com.tvanime.app.domain.model.SiteConfig
 import kotlinx.coroutines.flow.first
 import java.security.MessageDigest
@@ -43,6 +44,7 @@ class CrawlWorker(
                 if (result.items.isNotEmpty()) {
                     val existingIds = contentDao.observeAll().first().associateBy { it.id }
                     val entities = result.items.mapNotNull { item ->
+                        val playableUrl = playableUrlOrNull(item) ?: return@mapNotNull null
                         val stableId = stableId(item.title, item.source)
                         if (existingIds.containsKey(stableId)) null
                         else com.tvanime.app.data.local.entity.ContentEntity(
@@ -55,7 +57,7 @@ class CrawlWorker(
                             genres = "[]",
                             year = item.year.toIntOrNull() ?: 0,
                             communityRating = item.rating,
-                            videoUrl = "",
+                            videoUrl = playableUrl,
                             subtitleUrl = null,
                             sourceName = item.source,
                             syncedAt = System.currentTimeMillis()
@@ -92,6 +94,11 @@ class CrawlWorker(
             )
             else -> emptyList()
         }
+    }
+
+    private fun playableUrlOrNull(item: CrawlItem): String? {
+        // Current crawl output is a detail page, not a direct stream. Do not pollute Room with non-playable items.
+        return null
     }
 
     private fun stableId(title: String, source: String): String {
