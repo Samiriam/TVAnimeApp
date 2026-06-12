@@ -108,7 +108,6 @@ fun UrlBar(
         }
 
         UrlBarButton(icon = Icons.Default.Home, label = "Inicio", enabled = true, onClick = onHomeClick)
-
         UrlBarButton(icon = Icons.Default.PlayArrow, label = "Ir", enabled = urlText.isNotBlank(), onClick = { navigateFromText() })
 
         if (urlText.isNotBlank()) {
@@ -132,6 +131,15 @@ fun UrlBar(
                 Icon(Icons.Default.Clear, "Limpiar", Modifier.size(18.dp), tint = Color.White)
             }
         }
+    }
+}
+
+private fun normalizeBrowserInput(input: String): String {
+    val trimmed = input.trim()
+    return when {
+        trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+        trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
+        else -> "https://www.google.com/search?q=${trimmed.replace(" ", "+")}"
     }
 }
 

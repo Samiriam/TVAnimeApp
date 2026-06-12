@@ -1131,3 +1131,127 @@ Orden recomendado:
 1. Probar en Android TV real o emulador: foco D-pad, WebView, overlay y Player.
 2. Implementar resolver real del auto-crawler para transformar `detailUrl` en `videoUrl`; mientras no exista, el worker no contamina Room con items no reproducibles.
 3. Revisar si conviene pasar headers al Player mediante `SavedStateHandle` si aparecen URLs/cookies demasiado largas para rutas de Navigation.
+
+---
+
+## Sesion 2026-06-11 — Permisos runtime, Home TV-first y push de cambios
+
+### Problema reportado por el usuario
+
+La interfaz seguia rota y la app no solicitaba permisos. Se pidio coherencia con el objetivo actual: Android TV / Google TV para abrir paginas publicas, detectar streams y reproducirlos.
+
+### Cambios aplicados en este ciclo (sin commit previo en local)
+
+| Archivo | Cambio |
+|---|---|
+| `MainActivity.kt` | Flujo runtime de permisos con `PermissionGateScreen` y opcion de continuar limitado |
+| `AndroidManifest.xml` | Permisos `CAMERA`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`; features `required=false` |
+| `Screens.kt` | Reemplazada la Home por una interfaz TV-first con foco D-pad y catalogo M3U como secundario |
+| `TVAnimeNavHost.kt` | Propaga estado de permisos hacia Home |
+| `UrlBar.kt` | Boton `Ir` y normalizacion de entrada (`dominio`, `https`, busqueda Google) |
+| `WebViewBrowserScreen.kt` | Renombrado visual a `Captura Web`, selector simplificado y `onPermissionRequest` |
+
+### Operacion de sincronizacion realizada
+
+1. `git stash` con los 7 archivos modificados localmente.
+2. `git pull --ff-only` desde `origin/main` (trae `24c84db` docs y `54bf55e` fix browser playback).
+3. `git stash pop` con auto-merge en 5 archivos y conflicto solo en `PLAN_TRABAJO.md`.
+4. Conflicto resuelto conservando la version upstream como vigente y agregando esta seccion al final.
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `git pull --ff-only` | OK — `b1d0009..54bf55e` |
+| Auto-merge `Screens.kt`, `WebViewBrowserScreen.kt`, `UrlBar.kt`, `TVAnimeNavHost.kt` | Sin conflictos |
+| `PLAN_TRABAJO.md` | Conflicto resuelto manualmente, version upstream conservada |
+| `./gradlew.bat assembleDebug` | No ejecutable en esta terminal: `JAVA_HOME is not set` |
+
+### Estado
+
+Pendiente de build en Android Studio o terminal con JDK 17 configurado. La prueba manual esperada sigue siendo:
+
+1. Abrir app y ver pantalla de permisos.
+2. Aceptar permisos o continuar limitado.
+3. Ver Home `TVAnime Capture` con foco D-pad visible.
+4. Abrir `Captura Web`, seleccionar una fuente o escribir URL.
+5. Reproducir contenido en la pagina y verificar que aparezca el overlay `Video detectado`.
+6. Pulsar `Reproducir en TV` y validar `PlayerScreen` en pantalla completa.
+
+---
+
+## Correcciones Aplicadas - 2026-05-31 19:00
+
+### Fixes de bugs criticos
+
+| Bug | Causa | Fix | Archivos |
+|---|---|---|---|
+| App sale al abrir Navegador Web | `WebView(ctx.applicationContext)` en vez de `WebView(ctx)` | Cambiado a `WebView(ctx)` en ambos lugares | `TvWebView.kt`, `WebViewBrowserScreen.kt` |
+| Sin manejo de errores WebView | Falta `onReceivedError`, `onReceivedHttpError` | Agregados ambos callbacks + estado `webViewError` con borde rojo | `WebViewBrowserScreen.kt` |
+| Room crashea en upgrade v1→v2 | Sin Migration ni destructive migration | Agregado `.fallbackToDestructiveMigration()` | `TVAnimeDatabase.kt` |
+| JSON de evaluateJavascript no parsea | Android quotea el resultado JSON como string | `removeSurrounding("\"")` + `replace("\\\"", "\"")` antes de JSONArray | `CrawlService.kt` |
+| Contenido duplicado en cada crawl | `UUID.randomUUID()` genera ID nuevo cada vez | ID estable: MD5(title+source) + deduplicacion contra existentes | `CrawlWorker.kt` |
+| TvFocusable helper creado con errores | Patron `@Composable` incorrecto para Modifier extension | Archivo borrado - no se usaba en ninguna pantalla | Eliminado |
+
+### Estado post-fixes
+
+| Componente | Estado |
+|---|---|
+| Navegador Web | ✅ Compila con error handling |
+| WebView context | ✅ `ctx` no `applicationContext` |
+| Room migration | ✅ `fallbackToDestructiveMigration` |
+| CrawlService JSON | ✅ Unescape + `optString`/`optDouble` |
+| CrawlWorker ID | ✅ MD5 estable + deduplicacion |
+| Build | ✅ `BUILD SUCCESSFUL` |
+
+### Pendiente residual
+
+- **videoUrl vacio**: Resuelto en `54bf55e` — el worker no inserta entradas sin URL reproducible; resolver pendiente para llenar `detailUrl -> videoUrl`.
+- **Foco D-pad mejoras**: El patron actual funciona pero podria mejorarse con `MutableInteractionSource` en las pantallas principales (HomeScreen, SiteCard, SettingsScreen).
+- **Crawler categories persistencia**: Resuelto en `54bf55e` — categorias default ahora se persisten en Room.
+
+---
+
+## Restauracion UI Android TV / Permisos - 2026-05-31 18:42
+
+### Problema reportado
+
+El usuario reporto que la interfaz seguia rota y que la app no solicitaba permisos. Se pidio resolverlo incluso creando una interfaz nueva coherente con el objetivo actual: Android TV / Google TV para abrir paginas publicas, detectar streams y reproducirlos.
+
+### Hipotesis confirmadas en codigo
+
+| Hallazgo | Evidencia | Riesgo |
+|---|---|---|
+| Home desalineada con el producto actual | `HomeScreen` seguia centrada en catalogo/M3U y menus secundarios | El usuario no ve el flujo principal de captura web |
+| Navegador con estado inconsistente | `UrlBar` navegaba con `webView.loadUrl()` pero no actualizaba `uiState.currentUrl` | Compose podia recargar la URL anterior y romper la experiencia |
+| Permisos runtime inexistentes | `MainActivity` no usaba `RequestMultiplePermissions` | Android no mostraba dialogos de permisos |
+| Permisos WebView sin manejo | `WebChromeClient` no implementaba `onPermissionRequest` | Paginas que pidan camara/microfono quedaban bloqueadas sin explicacion |
+| Riesgo de filtrado en Android TV | `CAMERA`/`RECORD_AUDIO` sin `uses-feature required=false` | Google TV sin camara/microfono podia quedar filtrado |
+
+### Correccion aplicada
+
+| Archivo | Cambio |
+|---|---|
+| `MainActivity.kt` | Agregado flujo runtime de permisos con pantalla inicial `PermissionGateScreen` y opcion de continuar limitado |
+| `AndroidManifest.xml` | Agregados permisos `CAMERA`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`; features camara/microfono marcadas `required=false` para compatibilidad TV |
+| `Screens.kt` | Reemplazada la Home por una interfaz TV-first: flujo principal, estado de permisos, pasos de uso y catalogo M3U como secundario |
+| `TVAnimeNavHost.kt` | Propaga estado de permisos hacia Home |
+| `UrlBar.kt` | Agregado boton `Ir` y normalizacion de entrada (`dominio`, `https`, busqueda Google) |
+| `WebViewBrowserScreen.kt` | Renombrado visual a `Captura Web`, selector simplificado para fuentes de prueba/entrada manual, sincronizacion de URL con ViewModel y manejo de `onPermissionRequest` de WebView |
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `./gradlew.bat assembleDebug` | No ejecutable en esta terminal: `JAVA_HOME is not set and no 'java' command could be found in your PATH` |
+
+### Estado
+
+Pendiente de build en Android Studio o en una terminal con JDK/JAVA_HOME configurado. La correccion es reversible y no toca datos persistidos ni commits. La prueba manual esperada en Google TV/Android TV es:
+
+1. Abrir app y ver pantalla de permisos.
+2. Aceptar permisos o continuar limitado.
+3. Ver Home `TVAnime Capture` con foco D-pad visible.
+4. Abrir `Captura Web`, seleccionar una fuente o escribir URL.
+5. Reproducir contenido en la pagina y verificar que aparezca el overlay `Video detectado`.
+6. Pulsar `Reproducir en TV` y validar `PlayerScreen` en pantalla completa.

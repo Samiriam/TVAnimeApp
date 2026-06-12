@@ -1,7 +1,11 @@
 package com.tvanime.app.ui.screens
 
 import android.annotation.SuppressLint
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.KeyEvent
+import android.webkit.PermissionRequest
 import android.webkit.WebView
 import android.webkit.WebSettings
 import androidx.activity.compose.BackHandler
@@ -30,6 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.components.UrlBar
 import com.tvanime.app.ui.components.VideoCaptureOverlay
@@ -45,11 +51,13 @@ fun WebViewBrowserScreen(
     onPlayVideo: (String, Map<String, String>) -> Unit,
     viewModel: WebViewBrowserViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val detectedStream by viewModel.detectedStream.collectAsState()
 
     var showSiteSelector by remember { mutableStateOf(true) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var webPermissionMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(initialUrl) {
         if (!initialUrl.isNullOrBlank()) {
@@ -81,7 +89,7 @@ fun WebViewBrowserScreen(
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -103,13 +111,20 @@ fun WebViewBrowserScreen(
                 }
 
                 Text(
-                    "Navegador Web",
+                    "Captura Web",
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(Modifier.weight(1f))
+                Text(
+                    "Navega con el control, reproduce en la pagina y espera el aviso de stream detectado.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.62f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
                 var selectorFocused by remember { mutableStateOf(false) }
                 IconButton(
@@ -139,6 +154,7 @@ fun WebViewBrowserScreen(
                     currentUrl = uiState.currentUrl,
                     onUrlChanged = viewModel::setDefaultUrl,
                     onNavigate = { url ->
+                        viewModel.setDefaultUrl(url)
                         webViewRef?.loadUrl(url)
                         viewModel.addToHistory(url)
                         showSiteSelector = false
@@ -162,6 +178,7 @@ fun WebViewBrowserScreen(
             ) {
                 SiteSelectorPanel(
                     onSiteSelected = { url ->
+                        viewModel.setDefaultUrl(url)
                         webViewRef?.loadUrl(url)
                         viewModel.addToHistory(url)
                         showSiteSelector = false
@@ -172,12 +189,17 @@ fun WebViewBrowserScreen(
             Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 AndroidWebView(
                     url = if (showSiteSelector) "about:blank" else uiState.currentUrl,
-                    onUrlChanged = { viewModel.addToHistory(it) },
+                    canGrantWebPermissions = context.hasWebRuntimePermissions(),
+                    onUrlChanged = {
+                        viewModel.setDefaultUrl(it)
+                        viewModel.addToHistory(it)
+                    },
                     onStreamDetected = { url, format, domain ->
                         viewModel.onStreamDetected(url, format, domain, uiState.currentUrl)
                     },
                     onPageLoading = {},
                     onTitleChanged = {},
+                    onPermissionRequest = { message -> webPermissionMessage = message },
                     onWebViewReady = { webViewRef = it }
                 )
 
@@ -187,6 +209,22 @@ fun WebViewBrowserScreen(
                         color = FocusCyan,
                         trackColor = Color.Transparent
                     )
+                }
+
+                webPermissionMessage?.let { message ->
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
+                        color = Color(0xFF221A10).copy(alpha = 0.96f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f))
+                    ) {
+                        Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.secondary)
+                            Text(message, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = { webPermissionMessage = null }) { Text("Cerrar") }
+                        }
+                    }
                 }
             }
         }
@@ -208,31 +246,19 @@ fun WebViewBrowserScreen(
 @Composable
 private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit) {
     val sites = listOf(
-        SiteGroup("Anime", listOf(
-            SiteItem("AnimeFLV", "https://www3.animeflv.net", "🎌"),
-            SiteItem("JKAnime", "https://jkanime.net", "🎌"),
-            SiteItem("AnimeFenix", "https://www.animefenix.tv", "🎌"),
-            SiteItem("MonosChinos", "https://monoschinos2.com", "🎌"),
-            SiteItem("TioAnime", "https://tioanime.com", "🎌"),
+        SiteGroup("Fuentes de prueba", listOf(
+            SiteItem("Archive.org", "https://archive.org", "WEB"),
+            SiteItem("Video test HLS", "https://test-streams.mux.dev", "HLS"),
+            SiteItem("Google", "https://www.google.com", "BUSCAR"),
         )),
-        SiteGroup("Peliculas", listOf(
-            SiteItem("Cuevana3", "https://cuevana3.ch", "🎬"),
-            SiteItem("PelisPlus", "https://pelisplus.me", "🎬"),
-            SiteItem("Pelisflix", "https://pelisflix.media", "🎬"),
-        )),
-        SiteGroup("Series", listOf(
-            SiteItem("SeriesFLV", "https://seriesflv.net", "📺"),
-            SiteItem("DoramasMP4", "https://doramasmmp4.com", "🎭"),
-            SiteItem("DoramasFlix", "https://doramaflix.com", "🎭"),
-        )),
-        SiteGroup("Otros", listOf(
-            SiteItem("Archive.org", "https://archive.org", "📚"),
-            SiteItem("YouTube", "https://youtube.com", "▶️"),
+        SiteGroup("Entrada manual", listOf(
+            SiteItem("Escribir URL arriba", "https://", "URL"),
+            SiteItem("Buscar contenido publico", "https://www.google.com/search?q=public+domain+video", "BUSCAR"),
         ))
     )
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().height(280.dp).padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp).padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         sites.forEach { group ->
@@ -279,7 +305,10 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(text = site.icon, style = MaterialTheme.typography.headlineMedium)
+            Surface(color = FocusCyan.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+                Text(text = site.icon, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge, color = FocusCyan, fontWeight = FontWeight.Bold)
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = site.name,
@@ -308,10 +337,12 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
 @Composable
 private fun AndroidWebView(
     url: String,
+    canGrantWebPermissions: Boolean,
     onUrlChanged: (String) -> Unit,
     onStreamDetected: (String, String, String) -> Unit,
     onPageLoading: (Boolean) -> Unit,
     onTitleChanged: (String?) -> Unit,
+    onPermissionRequest: (String) -> Unit,
     onWebViewReady: (WebView) -> Unit
 ) {
     var webViewError by remember { mutableStateOf<String?>(null) }
@@ -417,6 +448,17 @@ private fun AndroidWebView(
                     override fun onProgressChanged(view: android.webkit.WebView?, newProgress: Int) {
                         super.onProgressChanged(view, newProgress)
                     }
+
+                    override fun onPermissionRequest(request: PermissionRequest?) {
+                        val resources = request?.resources ?: return
+                        if (canGrantWebPermissions) {
+                            request.grant(resources)
+                            post { onPermissionRequest("Permiso concedido a la pagina actual") }
+                        } else {
+                            request.deny()
+                            post { onPermissionRequest("Permiso bloqueado: autoriza camara/microfono en la pantalla inicial") }
+                        }
+                    }
                 }
 
                 addJavascriptInterface(object {
@@ -457,6 +499,19 @@ private fun AndroidWebView(
             }
         }
     )
+}
+
+private fun android.content.Context.hasWebRuntimePermissions(): Boolean {
+    val permissions = buildList {
+        add(Manifest.permission.CAMERA)
+        add(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    return permissions.all { permission ->
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    }
 }
 
 private fun WebView.simulateCenterClick() {

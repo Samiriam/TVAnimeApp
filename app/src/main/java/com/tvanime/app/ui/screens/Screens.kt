@@ -51,106 +51,153 @@ private fun Modifier.tvFocus(focused: Boolean): Modifier = this
 @Composable
 fun HomeScreen(
     catalog: List<ContentItem>,
+    permissionsGranted: Boolean = true,
     onOpenBrowser: () -> Unit,
     onOpenSettings: () -> Unit,
     onContentSelected: (ContentItem) -> Unit
 ) {
-    val prim = MaterialTheme.colorScheme.primary
-    val surfV = MaterialTheme.colorScheme.surfaceVariant
-
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.width(260.dp).fillMaxHeight()
-                    .background(Brush.horizontalGradient(listOf(surfV.copy(alpha = 0.5f), Color.Transparent)))
-                    .padding(vertical = 48.dp, horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(Modifier.padding(start = 20.dp, bottom = 48.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(Icons.Default.Home, null, Modifier.size(32.dp), tint = prim)
-                    Text("TVAnime", style = MaterialTheme.typography.headlineSmall,
-                        color = prim, fontWeight = FontWeight.Bold)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(Color(0xFF143A3B), MaterialTheme.colorScheme.background),
+                    radius = 1200f
+                )
+            )
+            .padding(42.dp)
+    ) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("TVAnime Capture", style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    Text("Abre una pagina publica, detecta enlaces reproducibles y envia el stream al reproductor TV.",
+                        style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
-                NavItem(icon = Icons.Default.Home, label = "Inicio", active = true, onClick = {})
-                NavItem(icon = Icons.Default.Search, label = "Buscar", onClick = onOpenBrowser)
-                NavItem(icon = Icons.Default.List, label = "Navegador Web", onClick = onOpenBrowser)
-                NavItem(icon = Icons.Default.Star, label = "Mi biblioteca", onClick = {})
-                NavItem(icon = Icons.Default.Favorite, label = "Favoritos", onClick = {})
-                NavItem(icon = Icons.Default.Refresh, label = "Historial", onClick = {})
-
-                Spacer(Modifier.weight(1f))
-                NavItem(icon = Icons.Default.Settings, label = "Ajustes", onClick = onOpenSettings)
+                PermissionStatusPill(permissionsGranted)
             }
 
-            Column(Modifier.fillMaxSize().padding(start = 16.dp)) {
-                if (catalog.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                            Icon(Icons.Default.PlayArrow, null, Modifier.size(72.dp), tint = prim)
-                            Text("TVAnimeApp", style = MaterialTheme.typography.displayMedium,
-                                color = prim, fontWeight = FontWeight.Bold)
-                            Text("Tu app de streaming para Android TV", style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                TvButton("Navegador Web", Icons.Default.List, onClick = onOpenBrowser)
-                                TvButton("Ajustes", Icons.Default.Settings, onClick = onOpenSettings)
-                            }
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Surface(
+                    modifier = Modifier.weight(1.25f).fillMaxHeight(),
+                    shape = RoundedCornerShape(28.dp),
+                    color = Color(0xFF11191B).copy(alpha = 0.92f),
+                    border = BorderStroke(1.dp, FocusCyan.copy(alpha = 0.22f))
+                ) {
+                    Column(Modifier.padding(34.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                        Surface(color = FocusCyan.copy(alpha = 0.12f), shape = RoundedCornerShape(999.dp)) {
+                            Text("Flujo principal", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                color = FocusCyan, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                         }
-                    }
-                } else {
-                    Box(Modifier.fillMaxWidth().height(360.dp)) {
-                        Box(Modifier.fillMaxSize()
-                            .background(Brush.verticalGradient(listOf(surfV, MaterialTheme.colorScheme.background))))
-                        Box(Modifier.align(Alignment.BottomStart).padding(60.dp, 48.dp)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Surface(color = Color(0x22FFFFFF), shape = RoundedCornerShape(999.dp)) {
-                                    Text("Catalogo", Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                                        color = prim, style = MaterialTheme.typography.labelMedium)
-                                }
-                                Text("TVAnime", style = MaterialTheme.typography.displaySmall,
-                                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                                Text("Explora tu contenido favorito", style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-
-                    Text("Contenido", Modifier.padding(horizontal = 48.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        contentPadding = PaddingValues(start = 48.dp, end = 40.dp)
-                    ) {
-                        items(catalog) { item ->
-                            var focused by remember { mutableStateOf(false) }
-                            Card(
-                                onClick = { onContentSelected(item) },
-                                modifier = Modifier.width(300.dp)
-                                    .focusable().onFocusChanged { focused = it.isFocused }
-                                    .scale(if (focused) 1.1f else 1f)
-                                    .border(if (focused) BorderStroke(5.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(16.dp))
-                                    .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(16.dp)),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = surfV.copy(alpha = if (focused) 1f else 0.6f))
-                            ) {
-                                Column(Modifier.padding(18.dp)) {
-                                    Text(item.title, style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, maxLines = 2)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3,
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
+                        Text("Capturar video desde una URL", style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Text("Usa el navegador integrado para entrar al sitio, reproducir el contenido y dejar que la app detecte HLS, MP4 u otros recursos compatibles. Cuando aparezca el aviso, pulsa Reproducir en TV.",
+                            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            TvButton("Abrir navegador", Icons.Default.Search, onClick = onOpenBrowser)
+                            TvButton("Permisos y fuentes", Icons.Default.Settings, onClick = onOpenSettings)
                         }
                     }
                 }
+
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    HomeStepCard("1", "Permisos", if (permissionsGranted) "Camara, microfono y notificaciones autorizadas." else "Autoriza permisos para WebView y avisos de captura.")
+                    HomeStepCard("2", "Navegacion", "Escribe una URL o elige una fuente publica desde el navegador.")
+                    HomeStepCard("3", "Reproduccion", "Selecciona el stream detectado y Media3 lo abre en pantalla completa.")
+                }
             }
+
+            if (catalog.isNotEmpty()) {
+                Text("Catalogo M3U disponible", style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    items(catalog.take(12)) { item ->
+                        CatalogMiniCard(item = item, onClick = { onContentSelected(item) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionGateScreen(
+    onRequestPermissions: () -> Unit,
+    onContinueWithoutPermissions: () -> Unit
+) {
+    Box(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(48.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(0.76f),
+            shape = RoundedCornerShape(30.dp),
+            color = Color(0xFF11191B),
+            border = BorderStroke(1.dp, FocusCyan.copy(alpha = 0.35f))
+        ) {
+            Column(Modifier.padding(40.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                Icon(Icons.Default.Lock, null, Modifier.size(58.dp), tint = FocusCyan)
+                Text("Permisos requeridos", style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text("TVAnime necesita permisos runtime para responder a solicitudes del navegador integrado, reproducir sitios que pidan camara o microfono, y mostrar avisos de captura cuando Android lo requiera.",
+                    style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TvButton("Solicitar permisos", Icons.Default.Lock, onClick = onRequestPermissions)
+                    TvButton("Continuar limitado", Icons.Default.PlayArrow, onClick = onContinueWithoutPermissions)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionStatusPill(granted: Boolean) {
+    Surface(color = if (granted) Color(0x2234D399) else Color(0x33FFB59C), shape = RoundedCornerShape(999.dp)) {
+        Text(
+            text = if (granted) "Permisos activos" else "Permisos pendientes",
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            color = if (granted) Color(0xFF34D399) else MaterialTheme.colorScheme.secondary,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun HomeStepCard(number: String, title: String, body: String) {
+    Surface(shape = RoundedCornerShape(22.dp), color = Color(0xFF172023).copy(alpha = 0.86f)) {
+        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Surface(color = FocusCyan.copy(alpha = 0.15f), shape = RoundedCornerShape(16.dp)) {
+                Text(number, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = FocusCyan,
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            Column {
+                Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold)
+                Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogMiniCard(item: ContentItem, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(260.dp).focusable().onFocusChanged { focused = it.isFocused }
+            .scale(if (focused) 1.06f else 1f)
+            .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(item.title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold, maxLines = 2)
+            Text(item.description, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall, maxLines = 2)
         }
     }
 }
@@ -346,9 +393,9 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
         androidx.compose.animation.AnimatedVisibility(visible = showControls, modifier = Modifier.align(Alignment.BottomCenter),
             enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
             Row(Modifier.fillMaxWidth().padding(20.dp), Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                PlayerControlButton(Icons.Default.Home, { exoPlayer.seekTo(0) })
-                PlayerControlButton(if (isPlaying) Icons.Default.Star else Icons.Default.Home, { if (isPlaying) exoPlayer.pause() else exoPlayer.play() })
-                PlayerControlButton(Icons.Default.Home, { exoPlayer.seekTo(duration) })
+                PlayerControlButton(Icons.Default.Refresh, "Reiniciar", { exoPlayer.seekTo(0) })
+                PlayerControlButton(if (isPlaying) Icons.Default.Build else Icons.Default.PlayArrow, if (isPlaying) "Pausar" else "Reproducir", { if (isPlaying) exoPlayer.pause() else exoPlayer.play() })
+                PlayerControlButton(Icons.Default.Send, "Avanzar al final", { exoPlayer.seekTo(duration) })
             }
         }
 
@@ -370,11 +417,11 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
 }
 
 @Composable
-private fun PlayerControlButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun PlayerControlButton(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     IconButton(onClick = onClick, modifier = Modifier.size(60.dp)
         .focusable().onFocusChanged { focused = it.isFocused }
         .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
         .background(if (focused) FocusHighlight else Color.Transparent, RoundedCornerShape(12.dp))
-    ) { Icon(icon, null, Modifier.size(32.dp), tint = Color.White) }
+    ) { Icon(icon, contentDescription, Modifier.size(32.dp), tint = Color.White) }
 }

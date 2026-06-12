@@ -42,7 +42,8 @@ private fun decodeHeaders(encoded: String?): Map<String, String> {
 
 @Composable
 fun TVAnimeNavHost(
-    navController: NavHostController = androidx.navigation.compose.rememberNavController()
+    navController: NavHostController = androidx.navigation.compose.rememberNavController(),
+    permissionsGranted: Boolean = true
 ) {
     NavHost(
         navController = navController,
@@ -54,6 +55,7 @@ fun TVAnimeNavHost(
 
             HomeScreen(
                 catalog = uiState.catalog,
+                permissionsGranted = permissionsGranted,
                 onOpenBrowser = { navController.navigate("browser") },
                 onOpenSettings = { navController.navigate("settings") },
                 onContentSelected = { item: ContentItem ->
