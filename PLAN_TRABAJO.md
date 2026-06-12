@@ -1165,11 +1165,20 @@ La interfaz seguia rota y la app no solicitaba permisos. Se pidio coherencia con
 | `git pull --ff-only` | OK — `b1d0009..54bf55e` |
 | Auto-merge `Screens.kt`, `WebViewBrowserScreen.kt`, `UrlBar.kt`, `TVAnimeNavHost.kt` | Sin conflictos |
 | `PLAN_TRABAJO.md` | Conflicto resuelto manualmente, version upstream conservada |
+| `git commit` + `git push origin main` | `260c2eb feat: permisos runtime, Home TV-first, WebView Capture y controles de player coherentes` |
 | `./gradlew.bat assembleDebug` | No ejecutable en esta terminal: `JAVA_HOME is not set` |
+
+### Ajustes adicionales aplicados sobre el merge
+
+| Archivo | Cambio | Motivo |
+|---|---|---|
+| `Screens.kt` | `PlayerControlButton` con iconos y `contentDescription` correctos (Reiniciar / Reproducir-Pausar / Avanzar al final) | El upstream tenia `Icons.Default.Star` y `Icons.Default.Home` sin sentido funcional |
+| `Screens.kt` | `DetailScreen` muestra mensaje y abre Captura Web cuando `videoUrl.isBlank()` | Fallback defensivo para items sin stream (crawler en pausa) |
+| `UrlBar.kt` | Eliminado boton `Ir` duplicado del merge | Duplicado entre stash y upstream |
 
 ### Estado
 
-Pendiente de build en Android Studio o terminal con JDK 17 configurado. La prueba manual esperada sigue siendo:
+Push `260c2eb` publicado en `origin/main`. Pendiente de build en Android Studio o terminal con JDK 17. La prueba manual esperada sigue siendo:
 
 1. Abrir app y ver pantalla de permisos.
 2. Aceptar permisos o continuar limitado.

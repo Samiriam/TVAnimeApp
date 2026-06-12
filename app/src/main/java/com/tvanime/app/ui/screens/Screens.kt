@@ -353,9 +353,26 @@ fun DetailScreen(contentItem: ContentItem?, isFavorite: Boolean, onPlayClick: ()
             Spacer(Modifier.height(12.dp))
             Text(it.description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.height(28.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TvButton("Reproducir", Icons.Default.PlayArrow) { onPlayClick() }
-                TvButton(if (isFavorite) "Quitar favorito" else "Agregar a favoritos", Icons.Default.Favorite) { onToggleFavorite() }
+            if (it.videoUrl.isBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f))
+                ) {
+                    Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.secondary)
+                        Text("Este item aun no tiene stream reproducible. Abre la fuente original desde Captura Web para encontrarlo.",
+                            color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                TvButton("Abrir en navegador", Icons.Default.Search) { onBack() }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TvButton("Reproducir", Icons.Default.PlayArrow) { onPlayClick() }
+                    TvButton(if (isFavorite) "Quitar favorito" else "Agregar a favoritos", Icons.Default.Favorite) { onToggleFavorite() }
+                }
             }
         }
     }
