@@ -1189,6 +1189,48 @@ Push `260c2eb` publicado en `origin/main`. Pendiente de build en Android Studio 
 
 ---
 
+## Sesion 2026-06-14 — Fix foco D-pad real y crash al abrir navegador
+
+### Problemas reportados por el usuario (prueba en TV real)
+
+1. El marco de foco (indicador visual de navegacion D-pad) no se ve al mover entre botones; solo aparece "a suerte" cuando se acierta al que se queria presionar.
+2. Tras pedir los 2 permisos iniciales y entrar al navegador, la app se sale y vuelve al home de la TV.
+
+### Diagnostico
+
+**Defecto 1 — Foco invisible**
+
+`Modifier.focusable()` se aplicaba por encima de componentes Material 3 (`IconButton`, `OutlinedButton`, `Card`, `Surface(onClick=...)`) que ya son focusables de fabrica. Resultado: D-pad mueve el foco al nodo interno del componente, pero `onFocusChanged { ... }` escucha al nodo padre duplicado que nunca recibe foco. El border/scale parecia aleatorio.
+
+**Defecto 2 — Crash/salida al abrir navegador**
+
+`DisposableEffect(webViewRef)` re-disparaba `onDispose` en cada recomposicion porque `webViewRef` cambiaba al crearse la WebView. Ademas `setOnKeyListener` + `scrollBy` capturaba D-pad y la WebView quedaba con foco atrapado, lo que en algunos sitios disparaba `destroy()` sobre la vista todavia en uso.
+
+### Cambios aplicados — `4dda801 fix: foco D-pad real + WebView sin crash al abrir`
+
+| Archivo | Cambio |
+|---|---|
+| `WebViewBrowserScreen.kt` | IconButton con `interactionSource` + `collectIsFocusedAsState()`; eliminado `setOnKeyListener`/`simulateCenterClick`; WebViewHolder + `DisposableEffect(Unit)` para limpieza; SiteCard con `Card(interactionSource=...)` |
+| `Screens.kt` | TvButton/TvIconButton/PlayerControlButton/NavItem/CatalogMiniCard con `interactionSource`; Row de categoria y Surface del URL field mantienen `focusable()` (no son focusables de fabrica) |
+| `UrlBar.kt` | UrlBarButton con `interactionSource`; BasicTextField usa `focusable(interactionSource=...)` para que el border exterior reaccione al mismo foco |
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `git push origin main` | OK — `4dda801` |
+| Brace balance (3 archivos) | 109/109, 108/108, 18/18 |
+| Imports muertos | Eliminados (`onFocusChanged`, `KeyEvent`, `simulateCenterClick`) |
+| `./gradlew.bat assembleDebug` | No ejecutable en esta terminal: `JAVA_HOME is not set` |
+
+### Pendiente de prueba manual en TV
+
+1. Mover con flechas entre botones en Home, Captura Web, Ajustes y UrlBar: el border cyan debe seguir al D-pad en tiempo real, no a "suerte".
+2. Aceptar permisos y abrir Captura Web: la app debe permanecer abierta, el selector de fuentes visible y la WebView cargar `about:blank` o la URL seleccionada.
+3. Probar con un sitio real (Archive.org, test-streams.mux.dev) y verificar que el overlay `Video detectado` aparece al reproducir un video.
+
+---
+
 ## Correcciones Aplicadas - 2026-05-31 19:00
 
 ### Fixes de bugs criticos
