@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import android.view.KeyEvent
 import android.webkit.PermissionRequest
 import android.webkit.WebView
 import android.webkit.WebSettings
@@ -12,8 +11,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,15 +26,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.components.UrlBar
@@ -56,8 +55,20 @@ fun WebViewBrowserScreen(
     val detectedStream by viewModel.detectedStream.collectAsState()
 
     var showSiteSelector by remember { mutableStateOf(true) }
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var webPermissionMessage by remember { mutableStateOf<String?>(null) }
+    val webViewHolder = remember { WebViewHolder() }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewHolder.webView?.let { wv ->
+                wv.stopLoading()
+                wv.loadUrl("about:blank")
+                wv.clearHistory()
+                wv.removeAllViews()
+                wv.destroy()
+            }
+        }
+    }
 
     LaunchedEffect(initialUrl) {
         if (!initialUrl.isNullOrBlank()) {
@@ -67,23 +78,7 @@ fun WebViewBrowserScreen(
     }
 
     BackHandler {
-        if (webViewRef?.canGoBack() == true) {
-            webViewRef?.goBack()
-        } else {
-            onBack()
-        }
-    }
-
-    DisposableEffect(webViewRef) {
-        onDispose {
-            webViewRef?.apply {
-                stopLoading()
-                loadUrl("about:blank")
-                clearHistory()
-                removeAllViews()
-                destroy()
-            }
-        }
+        onBack()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -93,19 +88,13 @@ fun WebViewBrowserScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                var backFocused by remember { mutableStateOf(false) }
+                val backInteraction = remember { MutableInteractionSource() }
+                val backFocused by backInteraction.collectIsFocusedAsState()
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
                         .size(48.dp)
-                        .focusable()
-                        .onFocusChanged { backFocused = it.isFocused }
-                        .border(
-                            if (backFocused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-                            else BorderStroke(0.dp, Color.Transparent),
-                            RoundedCornerShape(10.dp)
-                        )
-                        .background(if (backFocused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+                        .focusBorder(backFocused)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(26.dp), tint = Color.White)
                 }
@@ -126,19 +115,14 @@ fun WebViewBrowserScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                var selectorFocused by remember { mutableStateOf(false) }
+                val selectorInteraction = remember { MutableInteractionSource() }
+                val selectorFocused by selectorInteraction.collectIsFocusedAsState()
                 IconButton(
                     onClick = { showSiteSelector = !showSiteSelector },
                     modifier = Modifier
                         .size(48.dp)
-                        .focusable()
-                        .onFocusChanged { selectorFocused = it.isFocused }
-                        .border(
-                            if (selectorFocused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-                            else BorderStroke(0.dp, Color.Transparent),
-                            RoundedCornerShape(10.dp)
-                        )
-                        .background(if (selectorFocused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+                        .focusBorder(selectorFocused),
+                    interactionSource = selectorInteraction
                 ) {
                     Icon(
                         imageVector = Icons.Default.List,
@@ -150,21 +134,21 @@ fun WebViewBrowserScreen(
             }
 
             AnimatedVisibility(visible = !showSiteSelector) {
+                val currentUrl = uiState.currentUrl
                 UrlBar(
-                    currentUrl = uiState.currentUrl,
+                    currentUrl = currentUrl,
                     onUrlChanged = viewModel::setDefaultUrl,
                     onNavigate = { url ->
                         viewModel.setDefaultUrl(url)
-                        webViewRef?.loadUrl(url)
                         viewModel.addToHistory(url)
                         showSiteSelector = false
                     },
-                    onBack = { webViewRef?.goBack() },
-                    onForward = { webViewRef?.goForward() },
-                    onRefresh = { webViewRef?.reload() },
+                    onBack = {},
+                    onForward = {},
+                    onRefresh = {},
                     onHomeClick = { showSiteSelector = true },
-                    canGoBack = webViewRef?.canGoBack() == true,
-                    canGoForward = webViewRef?.canGoForward() == true,
+                    canGoBack = false,
+                    canGoForward = false,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -179,7 +163,6 @@ fun WebViewBrowserScreen(
                 SiteSelectorPanel(
                     onSiteSelected = { url ->
                         viewModel.setDefaultUrl(url)
-                        webViewRef?.loadUrl(url)
                         viewModel.addToHistory(url)
                         showSiteSelector = false
                     }
@@ -188,6 +171,7 @@ fun WebViewBrowserScreen(
 
             Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 AndroidWebView(
+                    holder = webViewHolder,
                     url = if (showSiteSelector) "about:blank" else uiState.currentUrl,
                     canGrantWebPermissions = context.hasWebRuntimePermissions(),
                     onUrlChanged = {
@@ -199,8 +183,7 @@ fun WebViewBrowserScreen(
                     },
                     onPageLoading = {},
                     onTitleChanged = {},
-                    onPermissionRequest = { message -> webPermissionMessage = message },
-                    onWebViewReady = { webViewRef = it }
+                    onPermissionRequest = { message -> webPermissionMessage = message }
                 )
 
                 if (uiState.isLoading) {
@@ -243,6 +226,15 @@ fun WebViewBrowserScreen(
     }
 }
 
+private fun Modifier.focusBorder(focused: Boolean): Modifier = this
+    .scale(if (focused) 1.05f else 1f)
+    .border(
+        if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+        else BorderStroke(0.dp, Color.Transparent),
+        RoundedCornerShape(10.dp)
+    )
+    .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+
 @Composable
 private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit) {
     val sites = listOf(
@@ -280,21 +272,17 @@ private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit) {
 
 @Composable
 private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
 
     Card(
+        onClick = onClick,
+        interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
             .scale(if (focused) 1.03f else 1f)
-            .border(
-                if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-                else BorderStroke(0.dp, Color.Transparent),
-                RoundedCornerShape(14.dp)
-            )
-            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
+            .focusBorder(focused)
+            .focusable(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (focused) 1f else 0.6f)
         ),
@@ -336,20 +324,27 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun AndroidWebView(
+    holder: WebViewHolder,
     url: String,
     canGrantWebPermissions: Boolean,
     onUrlChanged: (String) -> Unit,
     onStreamDetected: (String, String, String) -> Unit,
     onPageLoading: (Boolean) -> Unit,
     onTitleChanged: (String?) -> Unit,
-    onPermissionRequest: (String) -> Unit,
-    onWebViewReady: (WebView) -> Unit
+    onPermissionRequest: (String) -> Unit
 ) {
     var webViewError by remember { mutableStateOf<String?>(null) }
 
     AndroidView(
+        modifier = Modifier
+            .fillMaxSize()
+            .border(
+                width = 3.dp,
+                color = if (webViewError != null) Color.Red.copy(alpha = 0.5f) else FocusCyan.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(12.dp)
+            ),
         factory = { ctx ->
-            WebView(ctx).apply {
+            WebView(ctx).also { holder.webView = it }.apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
@@ -445,10 +440,6 @@ private fun AndroidWebView(
                 }
 
                 webChromeClient = object : android.webkit.WebChromeClient() {
-                    override fun onProgressChanged(view: android.webkit.WebView?, newProgress: Int) {
-                        super.onProgressChanged(view, newProgress)
-                    }
-
                     override fun onPermissionRequest(request: PermissionRequest?) {
                         val resources = request?.resources ?: return
                         if (canGrantWebPermissions) {
@@ -468,37 +459,18 @@ private fun AndroidWebView(
                         post { onStreamDetected(url, format, "") }
                     }
                 }, "AndroidCapture")
-
-                setOnKeyListener { _, keyCode, event ->
-                    if (event.action == KeyEvent.ACTION_DOWN) {
-                        when (keyCode) {
-                            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                                simulateCenterClick()
-                                true
-                            }
-                            KeyEvent.KEYCODE_DPAD_DOWN -> { scrollBy(0, 300); true }
-                            KeyEvent.KEYCODE_DPAD_UP -> { scrollBy(0, -300); true }
-                            KeyEvent.KEYCODE_DPAD_RIGHT -> { scrollBy(300, 0); true }
-                            KeyEvent.KEYCODE_DPAD_LEFT -> { scrollBy(-300, 0); true }
-                            else -> false
-                        }
-                    } else false
-                }
-            }.also { onWebViewReady(it) }
+            }
         },
-        modifier = Modifier
-            .fillMaxSize()
-            .border(
-                width = 3.dp,
-                color = if (webViewError != null) Color.Red.copy(alpha = 0.5f) else FocusCyan.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(12.dp)
-            ),
         update = { webView ->
             if (webView.url != url && !url.startsWith("about:blank")) {
                 webView.loadUrl(url)
             }
         }
     )
+}
+
+private class WebViewHolder {
+    var webView: WebView? = null
 }
 
 private fun android.content.Context.hasWebRuntimePermissions(): Boolean {
@@ -512,23 +484,6 @@ private fun android.content.Context.hasWebRuntimePermissions(): Boolean {
     return permissions.all { permission ->
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
-}
-
-private fun WebView.simulateCenterClick() {
-    evaluateJavascript("""
-        (function() {
-            var focused = document.activeElement;
-            if (focused) {
-                if (focused.tagName === 'VIDEO') {
-                    focused.play();
-                } else if (focused.tagName === 'A' && focused.href) {
-                    window.location.href = focused.href;
-                } else if (focused.click) {
-                    focused.click();
-                }
-            }
-        })();
-    """.trimIndent(), null)
 }
 
 private fun detectFormat(url: String): String {

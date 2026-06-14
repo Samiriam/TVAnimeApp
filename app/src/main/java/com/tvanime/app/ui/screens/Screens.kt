@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -43,7 +45,6 @@ import com.tvanime.app.ui.viewmodel.SettingsUiState
 import androidx.compose.foundation.BorderStroke
 
 private fun Modifier.tvFocus(focused: Boolean): Modifier = this
-    .focusable()
     .scale(if (focused) 1.06f else 1f)
     .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
     .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(12.dp))
@@ -184,10 +185,12 @@ private fun HomeStepCard(number: String, title: String, body: String) {
 
 @Composable
 private fun CatalogMiniCard(item: ContentItem, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     Card(
         onClick = onClick,
-        modifier = Modifier.width(260.dp).focusable().onFocusChanged { focused = it.isFocused }
+        interactionSource = interaction,
+        modifier = Modifier.width(260.dp)
             .scale(if (focused) 1.06f else 1f)
             .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
@@ -205,7 +208,8 @@ private fun CatalogMiniCard(item: ContentItem, onClick: () -> Unit) {
 @Composable
 private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
                     active: Boolean = false, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     val prim = MaterialTheme.colorScheme.primary
     val bg = when {
         focused -> FocusBg
@@ -216,8 +220,8 @@ private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label
 
     Surface(
         onClick = onClick,
+        interactionSource = interaction,
         modifier = Modifier.fillMaxWidth()
-            .focusable().onFocusChanged { focused = it.isFocused }
             .scale(if (focused) 1.04f else 1f)
             .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
             .background(bg, RoundedCornerShape(12.dp)),
@@ -234,13 +238,14 @@ private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label
 
 @Composable
 private fun TvButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     val prim = MaterialTheme.colorScheme.primary
 
     OutlinedButton(
         onClick = onClick,
+        interactionSource = interaction,
         modifier = Modifier
-            .focusable().onFocusChanged { focused = it.isFocused }
             .scale(if (focused) 1.08f else 1f)
             .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(14.dp))
             .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
@@ -258,12 +263,15 @@ private fun TvButton(text: String, icon: androidx.compose.ui.graphics.vector.Ima
 
 @Composable
 private fun TvIconButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, size: androidx.compose.ui.unit.Dp = 28.dp) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     val prim = MaterialTheme.colorScheme.primary
-    IconButton(onClick = onClick, modifier = Modifier
-        .focusable().onFocusChanged { focused = it.isFocused }
-        .border(if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
-        .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+    IconButton(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = Modifier
+            .border(if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
+            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
     ) { Icon(icon, "Accion", Modifier.size(size), tint = if (focused) prim else MaterialTheme.colorScheme.onSurface) }
 }
 
@@ -435,10 +443,13 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
 
 @Composable
 private fun PlayerControlButton(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    IconButton(onClick = onClick, modifier = Modifier.size(60.dp)
-        .focusable().onFocusChanged { focused = it.isFocused }
-        .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
-        .background(if (focused) FocusHighlight else Color.Transparent, RoundedCornerShape(12.dp))
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    IconButton(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = Modifier.size(60.dp)
+            .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
+            .background(if (focused) FocusHighlight else Color.Transparent, RoundedCornerShape(12.dp))
     ) { Icon(icon, contentDescription, Modifier.size(32.dp), tint = Color.White) }
 }

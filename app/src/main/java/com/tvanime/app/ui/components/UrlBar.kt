@@ -3,6 +3,8 @@ package com.tvanime.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -14,12 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.BorderStroke
@@ -41,7 +41,8 @@ fun UrlBar(
     modifier: Modifier = Modifier
 ) {
     var urlText by remember(currentUrl) { mutableStateOf(currentUrl) }
-    var urlFieldFocused by remember { mutableStateOf(false) }
+    val urlInteraction = remember { MutableInteractionSource() }
+    val urlFieldFocused by urlInteraction.collectIsFocusedAsState()
 
     fun navigateFromText() {
         val raw = urlText.trim()
@@ -68,8 +69,7 @@ fun UrlBar(
 
         Box(
             modifier = Modifier.weight(1f)
-                .focusable()
-                .onFocusChanged { urlFieldFocused = it.isFocused }
+                .focusable(interactionSource = urlInteraction)
         ) {
             BasicTextField(
                 value = urlText,
@@ -111,35 +111,11 @@ fun UrlBar(
         UrlBarButton(icon = Icons.Default.PlayArrow, label = "Ir", enabled = urlText.isNotBlank(), onClick = { navigateFromText() })
 
         if (urlText.isNotBlank()) {
-            var clearFocused by remember { mutableStateOf(false) }
-            IconButton(
-                onClick = {
-                    urlText = ""
-                    onUrlChanged("")
-                },
-                modifier = Modifier
-                    .size(36.dp)
-                    .focusable()
-                    .onFocusChanged { clearFocused = it.isFocused }
-                    .border(
-                        if (clearFocused) BorderStroke(2.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-                        else BorderStroke(0.dp, Color.Transparent),
-                        RoundedCornerShape(8.dp)
-                    )
-                    .background(if (clearFocused) FocusBg else Color.Transparent, RoundedCornerShape(8.dp))
-            ) {
-                Icon(Icons.Default.Clear, "Limpiar", Modifier.size(18.dp), tint = Color.White)
-            }
+            UrlBarButton(icon = Icons.Default.Clear, label = "Limpiar", enabled = true, onClick = {
+                urlText = ""
+                onUrlChanged("")
+            })
         }
-    }
-}
-
-private fun normalizeBrowserInput(input: String): String {
-    val trimmed = input.trim()
-    return when {
-        trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-        trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
-        else -> "https://www.google.com/search?q=${trimmed.replace(" ", "+")}"
     }
 }
 
@@ -150,16 +126,16 @@ private fun UrlBarButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     val alpha = if (enabled) 1f else 0.4f
 
     IconButton(
         onClick = onClick,
         enabled = enabled,
+        interactionSource = interaction,
         modifier = Modifier
             .size(40.dp)
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
             .border(
                 if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
                 else BorderStroke(0.dp, Color.Transparent),
