@@ -631,17 +631,11 @@ private fun AndroidWebView(
     AndroidView(
         modifier = Modifier
             .fillMaxSize()
-            .focusRequester(focusRequester)
-            .focusable(interactionSource = interaction)
             .border(
-                width = if (focused) 4.dp else 2.dp,
+                width = 2.dp,
                 brush = if (focused) Brush.linearGradient(listOf(FocusCyan, FocusGlow))
                 else SolidColor(Color.White.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(12.dp)
-            )
-            .background(
-                if (focused) FocusBg.copy(alpha = 0.15f) else Color.Transparent,
-                RoundedCornerShape(12.dp)
             ),
         factory = { ctx ->
             NativeDpadWebView(ctx).also { wv ->
@@ -661,7 +655,7 @@ private fun AndroidWebView(
                     settings.userAgentString = WebViewSessionManager.USER_AGENT
                     android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     isFocusable = true
-                    isFocusableInTouchMode = true
+                    isFocusableInTouchMode = false
 
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
@@ -690,6 +684,9 @@ private fun AndroidWebView(
                             super.onPageFinished(view, url)
                             post { onPageLoading(false) }
                             view?.title?.let { post { onTitleChanged(it) } }
+                            view?.evaluateJavascript(TV_FOCUS_INJECT_JS, null)
+                            view?.requestFocus()
+                            view?.requestFocus(View.FOCUS_DOWN)
                         }
 
                         @Suppress("DEPRECATION")
@@ -764,14 +761,30 @@ private class NativeDpadWebView(context: android.content.Context) : WebView(cont
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                evaluateJavascript(
-                    "(function(){var a=document.activeElement;if(!a||a===document.body){return false;}if(a.tagName==='VIDEO'){a.play();return true;}if(a.tagName==='A'&&a.href){window.location.href=a.href;return true;}if(a.click){a.click();return true;}return false;})()",
-                    null
+                val handled = evaluateJavascriptWithResult(
+                    "(function(){var a=document.activeElement;if(!a||a===document.body){return false;}if(a.tagName==='VIDEO'){a.play();return true;}if(a.tagName==='A'&&a.href){window.location.href=a.href;return true;}if(a.click){a.click();return true;}return false;})()"
                 )
-                return true
+                if (handled == "true") return true
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun evaluateJavascriptWithResult(script: String): String? {
+        var result: String? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        post {
+            evaluateJavascript(script) { value ->
+                result = value
+                latch.countDown()
+            }
+        }
+        return try {
+            latch.await(150, java.util.concurrent.TimeUnit.MILLISECONDS)
+            result
+        } catch (e: InterruptedException) {
+            null
+        }
     }
 }
 
@@ -808,3 +821,59 @@ private fun android.content.Context.hasWebRuntimePermissions(): Boolean {
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
 }
+
+private const val TV_FOCUS_INJECT_JS = """
+(function() {
+    try {
+        var SEL = 'a, button, input, textarea, select, [role=button], [tabindex], video, iframe, [onclick]';
+        var IMG_SEL = 'img';
+        var CARD_SEL = 'article, .card, .movie, .item, .poster, .video, .thumb, .tile, [class*=card], [class*=movie], [class*=item], [class*=poster], [class*=thumb], [class*=tile]';
+
+        function makeFocusable(el) {
+            if (!el || el.nodeType !== 1) return;
+            if (el.hasAttribute('tabindex')) {
+                if (el.getAttribute('tabindex') === '-1') el.setAttribute('tabindex', '0');
+                return;
+            }
+            el.setAttribute('tabindex', '0');
+        }
+
+        function processAll() {
+            try {
+                var nodes = document.querySelectorAll(SEL);
+                for (var i = 0; i < nodes.length; i++) makeFocusable(nodes[i]);
+                var cards = document.querySelectorAll(CARD_SEL);
+                for (var j = 0; j < cards.length; j++) makeFocusable(cards[j]);
+                var imgs = document.querySelectorAll(IMG_SEL);
+                for (var k = 0; k < imgs.length; k++) {
+                    var parent = imgs[k];
+                    for (var p = 0; p < 4; p++) {
+                        if (!parent) break;
+                        if (parent.tagName === 'A' || parent.tagName === 'BUTTON' || parent.onclick) {
+                            makeFocusable(parent);
+                            break;
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        processAll();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processAll);
+        }
+        window.addEventListener('load', processAll);
+        try {
+            var mo = new MutationObserver(function() {
+                clearTimeout(window.__tvFocusTimer);
+                window.__tvFocusTimer = setTimeout(processAll, 250);
+            });
+            mo.observe(document.body, {childList: true, subtree: true});
+        } catch (e) {}
+        return true;
+    } catch (e) {
+        return false;
+    }
+})();
+"""
