@@ -1231,6 +1231,63 @@ Push `260c2eb` publicado en `origin/main`. Pendiente de build en Android Studio 
 
 ---
 
+## Sesion 2026-06-24 — Toolchain upgrade a JDK 21
+
+### Problema
+
+`./gradlew.bat :app:assembleDebug` fallaba con:
+```
+Failed to transform core-for-system-modules.jar to match attributes ...
+Execution failed for JdkImageTransform: ... platforms/android-34/core-for-system-modules.jar.
+```
+
+AGP 8.2 tiene un bug conocido con el `JdkImageTransform` cuando se compila con JDK 21. Kotlin compila OK, pero `compileDebugJavaWithJavac` rompe.
+
+### Verificacion del entorno
+
+| Componente | Estado |
+|---|---|
+| JDK 17 | NO instalado en el sistema |
+| JDK 21 (ms-21.0.9) | Unico JDK presente, en `C:\Users\informatica\.jdks\ms-21.0.9` |
+| Android SDK | `C:\Users\informatica\AppData\Local\Android\Sdk` (platforms 21-36, build-tools 30-36) |
+| `local.properties` | `sdk.dir` apunta al SDK correcto |
+
+### Decision: migrar toolchain, no instalar JDK 17 fantasma
+
+Antes el plan sugeria instalar JDK 17; el usuario corrigio que solo hay JDK 21 en el sistema. Se descarta instalar otro JDK y se opta por alinear el proyecto al JDK unico.
+
+### Cambios aplicados — `1a9510d build: upgrade AGP 8.2 -> 8.5.2 + Gradle 8.2 -> 8.7 + KSP 1.0.17 -> 1.0.18`
+
+| Archivo | Antes | Despues | Razon |
+|---|---|---|---|
+| `libs.versions.toml` | `agp = "8.2.0"` | `agp = "8.5.2"` | AGP 8.5+ tiene soporte oficial JDK 21 |
+| `libs.versions.toml` | `ksp = "1.9.22-1.0.17"` | `ksp = "1.9.22-1.0.18"` | KSP 1.0.18 corrige incompatibilidades con JDK 21 |
+| `gradle/wrapper/gradle-wrapper.properties` | `gradle-8.2.1-bin.zip` | `gradle-8.7-bin.zip` | AGP 8.5 requiere Gradle 8.7+ |
+
+Versiones sin cambios: Kotlin 1.9.22, Hilt 2.48.1, Compose BOM 2024.05.00, Media3 1.2.0, WorkManager 2.9.0, Room 2.6.1.
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `gradlew.bat :app:assembleDebug` | `BUILD SUCCESSFUL in 8m 20s` |
+| APK | `app/build/outputs/apk/debug/app-debug.apk` (`14530583` bytes, `2026-06-24 13:17:35`) |
+| `classes.dex` y `AndroidManifest.xml` | Presentes en el APK |
+| `git push origin main` | OK — `1a9510d` |
+
+### Conclusion para el usuario
+
+El proyecto compila con JDK 21 como unico JDK del sistema. La APK de prueba ya esta disponible e incluye los 4 fixes nuevos (260c2eb, 39968de, 4dda801, 118a886).
+
+Ruta del APK:
+```
+C:\Users\informatica\AndroidStudioProjects\TVAnimeApp\app\build\outputs\apk\debug\app-debug.apk
+```
+
+Pendiente de prueba manual en TV con esta APK.
+
+---
+
 ## Correcciones Aplicadas - 2026-05-31 19:00
 
 ### Fixes de bugs criticos
