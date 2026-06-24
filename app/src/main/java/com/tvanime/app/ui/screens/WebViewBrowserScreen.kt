@@ -14,7 +14,6 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -34,20 +34,28 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tvanime.app.ui.components.UrlBar
 import com.tvanime.app.ui.components.VideoCaptureOverlay
 import com.tvanime.app.ui.theme.FocusBg
 import com.tvanime.app.ui.theme.FocusCyan
 import com.tvanime.app.ui.theme.FocusGlow
 import com.tvanime.app.ui.viewmodel.WebViewBrowserViewModel
+import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
 
 private const val DEFAULT_HOME_URL = "https://www.google.com"
 
@@ -64,10 +72,15 @@ fun WebViewBrowserScreen(
 
     val startingUrl = initialUrl?.takeIf { it.isNotBlank() } ?: DEFAULT_HOME_URL
     var currentUrl by remember { mutableStateOf(startingUrl) }
+    var urlInput by remember(startingUrl) { mutableStateOf(startingUrl) }
     var showSiteSelector by remember { mutableStateOf(false) }
     var webPermissionMessage by remember { mutableStateOf<String?>(null) }
     val webViewHolder = remember { WebViewHolder() }
+    val focusableElements = remember { mutableStateListOf<FocusableElement>() }
+    var selectedIndex by remember { mutableStateOf(0) }
     val webViewFocusRequester = remember { FocusRequester() }
+    val searchBarFocusRequester = remember { FocusRequester() }
+    var isSearchBarFocused by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -92,124 +105,207 @@ fun WebViewBrowserScreen(
     }
 
     BackHandler {
-        val wv = webViewHolder.webView
-        if (wv != null && wv.canGoBack()) {
-            wv.goBack()
-        } else {
-            onBack()
+        when {
+            isSearchBarFocused -> {
+                webViewFocusRequester.requestFocus()
+            }
+            showSiteSelector -> {
+                showSiteSelector = false
+                webViewFocusRequester.requestFocus()
+            }
+            webViewHolder.webView?.canGoBack() == true -> {
+                webViewHolder.webView?.goBack()
+            }
+            else -> onBack()
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            HeaderBar(
-                onBack = onBack,
-                onToggleSelector = { showSiteSelector = !showSiteSelector },
-                selectorOpen = showSiteSelector
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    androidx.compose.ui.input.key.Key.Back -> {
+                        if (isSearchBarFocused) {
+                            webViewFocusRequester.requestFocus()
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        HeaderBar(
+            onBack = onBack,
+            onToggleSelector = {
+                showSiteSelector = !showSiteSelector
+                if (showSiteSelector) webViewFocusRequester.requestFocus()
+            },
+            selectorOpen = showSiteSelector
+        )
+
+        SearchBar(
+            url = urlInput,
+            onUrlChange = { urlInput = it },
+            onSubmit = { query ->
+                val target = if (query.startsWith("http://") || query.startsWith("https://")) {
+                    query
+                } else if (query.contains(".") && !query.contains(" ")) {
+                    "https://$query"
+                } else {
+                    "https://www.google.com/search?q=${query.replace(" ", "+")}"
+                }
+                urlInput = target
+                currentUrl = target
+                viewModel.setDefaultUrl(target)
+                viewModel.addToHistory(target)
+                webViewFocusRequester.requestFocus()
+            },
+            focusRequester = searchBarFocusRequester,
+            onFocusChange = { isSearchBarFocused = it },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        AnimatedVisibility(
+            visible = showSiteSelector,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            SiteSelectorPanel(
+                onSiteSelected = { url ->
+                    urlInput = url
+                    currentUrl = url
+                    viewModel.setDefaultUrl(url)
+                    viewModel.addToHistory(url)
+                    showSiteSelector = false
+                    webViewFocusRequester.requestFocus()
+                },
+                onClose = {
+                    showSiteSelector = false
+                    webViewFocusRequester.requestFocus()
+                }
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth()
+        ) {
+            AndroidWebView(
+                holder = webViewHolder,
+                url = currentUrl,
+                focusRequester = webViewFocusRequester,
+                canGrantWebPermissions = context.hasWebRuntimePermissions(),
+                onUrlChanged = {
+                    currentUrl = it
+                    urlInput = it
+                    viewModel.setDefaultUrl(it)
+                    viewModel.addToHistory(it)
+                },
+                onFocusablesChanged = { elements ->
+                    focusableElements.clear()
+                    focusableElements.addAll(elements)
+                    if (selectedIndex >= focusableElements.size) {
+                        selectedIndex = focusableElements.coerceFirstVisible()
+                    }
+                },
+                onStreamDetected = { url, format, domain ->
+                    viewModel.onStreamDetected(url, format, domain, currentUrl)
+                },
+                onPageLoading = {},
+                onTitleChanged = {},
+                onPermissionRequest = { message -> webPermissionMessage = message }
             )
 
-            AnimatedVisibility(visible = !showSiteSelector) {
-                UrlBar(
-                    currentUrl = currentUrl,
-                    onUrlChanged = { currentUrl = it },
-                    onNavigate = { url ->
-                        val normalized = if (url.startsWith("http://") || url.startsWith("https://")) url else "https://$url"
-                        currentUrl = normalized
-                        viewModel.setDefaultUrl(normalized)
-                        viewModel.addToHistory(normalized)
-                    },
-                    onBack = { webViewHolder.webView?.goBack() },
-                    onForward = { webViewHolder.webView?.goForward() },
-                    onRefresh = { webViewHolder.webView?.reload() },
-                    onHomeClick = {
-                        currentUrl = DEFAULT_HOME_URL
-                        viewModel.setDefaultUrl(DEFAULT_HOME_URL)
-                    },
-                    canGoBack = webViewHolder.webView?.canGoBack() == true,
-                    canGoForward = webViewHolder.webView?.canGoForward() == true,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+            if (focusableElements.isNotEmpty() && !isSearchBarFocused) {
+                DpadCursorOverlay(
+                    elements = focusableElements,
+                    selectedIndex = selectedIndex
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            AnimatedVisibility(
-                visible = showSiteSelector,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                SiteSelectorPanel(
-                    onSiteSelected = { url ->
-                        currentUrl = url
-                        viewModel.setDefaultUrl(url)
-                        viewModel.addToHistory(url)
-                        showSiteSelector = false
-                    }
+            if (uiState.isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    color = FocusCyan,
+                    trackColor = Color.Transparent
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
-            ) {
-                AndroidWebView(
-                    holder = webViewHolder,
-                    url = currentUrl,
-                    focusRequester = webViewFocusRequester,
-                    canGrantWebPermissions = context.hasWebRuntimePermissions(),
-                    onUrlChanged = {
-                        currentUrl = it
-                        viewModel.setDefaultUrl(it)
-                        viewModel.addToHistory(it)
-                    },
-                    onStreamDetected = { url, format, domain ->
-                        viewModel.onStreamDetected(url, format, domain, currentUrl)
-                    },
-                    onPageLoading = {},
-                    onTitleChanged = {},
-                    onPermissionRequest = { message -> webPermissionMessage = message }
-                )
-
-                if (uiState.isLoading) {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth().height(3.dp),
-                        color = FocusCyan,
-                        trackColor = Color.Transparent
-                    )
-                }
-
-                webPermissionMessage?.let { message ->
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
-                        color = Color(0xFF221A10).copy(alpha = 0.96f),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f))
-                    ) {
-                        Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.secondary)
-                            Text(message, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { webPermissionMessage = null }) { Text("Cerrar") }
+            DpadHandler(
+                elements = focusableElements,
+                selectedIndex = selectedIndex,
+                onSelectIndex = { selectedIndex = it },
+                onActivate = { element ->
+                    webViewHolder.webView?.activateElement(element)
+                },
+                enabled = !isSearchBarFocused && !showSiteSelector,
+                onRefreshFocusables = {
+                    webViewHolder.webView?.refreshFocusables { result ->
+                        focusableElements.clear()
+                        focusableElements.addAll(result)
+                        if (selectedIndex >= focusableElements.size) {
+                            selectedIndex = focusableElements.coerceFirstVisible()
                         }
                     }
                 }
+            )
+
+            if (focusableElements.isEmpty() && !uiState.isLoading && !isSearchBarFocused && !showSiteSelector) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                        .background(Color(0xDD11191B), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        "Usa el control: flechas para mover, OK para abrir, atras para volver",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            webPermissionMessage?.let { message ->
+                Surface(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
+                    color = Color(0xFF221A10).copy(alpha = 0.96f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f))
+                ) {
+                    Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.secondary)
+                        Text(message, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { webPermissionMessage = null }) { Text("Cerrar") }
+                    }
+                }
             }
         }
-
-        VideoCaptureOverlay(
-            stream = detectedStream,
-            isVisible = uiState.showOverlay,
-            onPlayVideo = { url, headers ->
-                val mergedHeaders = viewModel.getPlaybackHeaders(url, detectedStream?.referer.orEmpty()) + headers
-                onPlayVideo(url, mergedHeaders)
-                viewModel.dismissOverlay()
-            },
-            onDismiss = { viewModel.dismissOverlay() },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)
-        )
     }
+
+    VideoCaptureOverlay(
+        stream = detectedStream,
+        isVisible = uiState.showOverlay,
+        onPlayVideo = { url, headers ->
+            val mergedHeaders = viewModel.getPlaybackHeaders(url, detectedStream?.referer.orEmpty()) + headers
+            onPlayVideo(url, mergedHeaders)
+            viewModel.dismissOverlay()
+        },
+        onDismiss = { viewModel.dismissOverlay() }
+    )
+}
+
+private fun SnapshotStateList<FocusableElement>.coerceFirstVisible(): Int {
+    for (i in indices) if (this[i].visible) return i
+    return 0
 }
 
 @Composable
@@ -219,7 +315,7 @@ private fun HeaderBar(
     selectorOpen: Boolean
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -237,7 +333,7 @@ private fun HeaderBar(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Navega con el control, reproduce en la pagina y espera el aviso de stream detectado.",
+                "Flechas para mover el cursor, OK para abrir, atras para volver",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.62f),
                 maxLines = 2,
@@ -256,6 +352,78 @@ private fun HeaderBar(
                 modifier = Modifier.size(28.dp),
                 tint = Color.White
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchBar(
+    url: String,
+    onUrlChange: (String) -> Unit,
+    onSubmit: (String) -> Unit,
+    focusRequester: FocusRequester,
+    onFocusChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    LaunchedEffect(focused) { onFocusChange(focused) }
+
+    Surface(
+        onClick = { focusRequester.requestFocus() },
+        interactionSource = interaction,
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                RoundedCornerShape(12.dp)
+            ),
+        color = if (focused) FocusBg else Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Default.Search, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            androidx.compose.foundation.text.BasicTextField(
+                value = url,
+                onValueChange = onUrlChange,
+                textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
+                singleLine = true,
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(FocusCyan),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown &&
+                            event.key == androidx.compose.ui.input.key.Key.Enter) {
+                            onSubmit(url)
+                            true
+                        } else false
+                    },
+                decorationBox = { inner ->
+                    Box {
+                        if (url.isBlank()) {
+                            Text(
+                                "Buscar o escribir URL...",
+                                color = Color.White.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        inner()
+                    }
+                }
+            )
+            TvFocusableButton(
+                onClick = { onSubmit(url) },
+                contentDescription = "Ir",
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(Icons.Default.Send, "Ir", Modifier.size(20.dp), tint = Color.White)
+            }
         }
     }
 }
@@ -290,35 +458,181 @@ fun TvFocusableButton(
 }
 
 @Composable
-private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit) {
+private fun DpadCursorOverlay(elements: List<FocusableElement>, selectedIndex: Int) {
+    val safe = elements.getOrNull(selectedIndex) ?: return
+    if (!safe.visible) return
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        x = with(density) { safe.x.toDp().roundToPx() },
+                        y = with(density) { safe.y.toDp().roundToPx() }
+                    )
+                }
+                .size(
+                    width = with(density) { safe.w.toDp() },
+                    height = with(density) { safe.h.toDp() }
+                )
+                .border(
+                    width = 4.dp,
+                    brush = Brush.linearGradient(listOf(FocusCyan, FocusGlow)),
+                    shape = RoundedCornerShape(6.dp)
+                )
+                .background(FocusBg.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .background(FocusCyan, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = safe.label.ifBlank { safe.tag },
+                    color = Color.Black,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DpadHandler(
+    elements: List<FocusableElement>,
+    selectedIndex: Int,
+    onSelectIndex: (Int) -> Unit,
+    onActivate: (FocusableElement) -> Unit,
+    onRefreshFocusables: () -> Unit,
+    enabled: Boolean
+) {
+    if (!enabled) return
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (elements.isEmpty()) return@onPreviewKeyEvent false
+                when (event.key) {
+                    androidx.compose.ui.input.key.Key.DirectionUp -> {
+                        onSelectIndex(moveVertical(elements, selectedIndex, -1))
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionDown -> {
+                        onSelectIndex(moveVertical(elements, selectedIndex, 1))
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> {
+                        onSelectIndex(moveHorizontal(elements, selectedIndex, -1))
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> {
+                        onSelectIndex(moveHorizontal(elements, selectedIndex, 1))
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.Enter, androidx.compose.ui.input.key.Key.NumPadEnter -> {
+                        elements.getOrNull(selectedIndex)?.let { onActivate(it) }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.MediaPlayPause, androidx.compose.ui.input.key.Key.MediaPlay -> {
+                        elements.getOrNull(selectedIndex)?.let { onActivate(it) }
+                        true
+                    }
+                    androidx.compose.ui.input.key.Key.F5 -> {
+                        onRefreshFocusables()
+                        true
+                    }
+                    else -> false
+                }
+            }
+    )
+}
+
+private fun moveVertical(elements: List<FocusableElement>, current: Int, direction: Int): Int {
+    val cur = elements.getOrNull(current) ?: return 0
+    val cy = cur.y + cur.h / 2
+    val candidates = elements.withIndex()
+        .filter { (i, e) -> i != current && e.visible }
+        .map { (i, e) ->
+            val ec = e.y + e.h / 2
+            val dy = ec - cy
+            val sameColumn = kotlin.math.abs(e.x - cur.x) < (cur.w + e.w) / 2
+            val verticalDist = if (sameColumn) kotlin.math.abs(dy) else kotlin.math.abs(dy) + (cur.w + e.w) / 2
+            Triple(i, verticalDist, dy)
+        }
+        .filter { it.second > 0 }
+        .filter { direction > 0 || it.third < 0 }
+        .filter { direction < 0 || it.third > 0 }
+        .sortedBy { it.second }
+    return candidates.firstOrNull()?.first ?: current
+}
+
+private fun moveHorizontal(elements: List<FocusableElement>, current: Int, direction: Int): Int {
+    val cur = elements.getOrNull(current) ?: return 0
+    val cy = cur.y + cur.h / 2
+    val candidates = elements.withIndex()
+        .filter { (i, e) ->
+            i != current && e.visible && kotlin.math.abs((e.y + e.h / 2) - cy) < cur.h
+        }
+        .map { (i, e) ->
+            val dx = (e.x + e.w / 2) - (cur.x + cur.w / 2)
+            Triple(i, kotlin.math.abs(dx), dx)
+        }
+        .filter { it.second > 0 }
+        .filter { direction > 0 || it.third < 0 }
+        .filter { direction < 0 || it.third > 0 }
+        .sortedBy { it.second }
+    return candidates.firstOrNull()?.first ?: current
+}
+
+@Composable
+private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit, onClose: () -> Unit) {
     val sites = listOf(
         SiteGroup("Fuentes de prueba", listOf(
+            SiteItem("Google", "https://www.google.com", "BUSCAR"),
             SiteItem("Archive.org", "https://archive.org", "WEB"),
             SiteItem("Video test HLS", "https://test-streams.mux.dev", "HLS"),
-            SiteItem("Google", "https://www.google.com", "BUSCAR"),
+            SiteItem("Wikipedia", "https://www.wikipedia.org", "INFO"),
         )),
         SiteGroup("Entrada manual", listOf(
-            SiteItem("Escribir URL arriba", "https://", "URL"),
-            SiteItem("Buscar contenido publico", "https://www.google.com/search?q=public+domain+video", "BUSCAR"),
+            SiteItem("Escribir arriba", "https://", "URL"),
+            SiteItem("Buscar en Google", "https://www.google.com/search?q=public+domain+video", "BUSCAR"),
         ))
     )
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp).padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        sites.forEach { group ->
-            item {
-                Text(
-                    text = group.name,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = FocusCyan,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 6.dp)
-                )
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Sitios", color = FocusCyan, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            TvFocusableButton(onClick = onClose, contentDescription = "Cerrar sitios", modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Close, "Cerrar", Modifier.size(20.dp), tint = Color.White)
             }
-            items(group.sites) { site ->
-                SiteCard(site = site, onClick = { onSiteSelected(site.url) })
+        }
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            sites.forEach { group ->
+                item {
+                    Text(
+                        text = group.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = FocusCyan,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 6.dp)
+                    )
+                }
+                items(group.sites) { site ->
+                    SiteCard(site = site, onClick = { onSiteSelected(site.url) })
+                }
             }
         }
     }
@@ -377,6 +691,17 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
     }
 }
 
+data class FocusableElement(
+    val index: Int,
+    val x: Float,
+    val y: Float,
+    val w: Float,
+    val h: Float,
+    val tag: String,
+    val label: String,
+    val visible: Boolean
+)
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun AndroidWebView(
@@ -385,6 +710,7 @@ private fun AndroidWebView(
     focusRequester: FocusRequester,
     canGrantWebPermissions: Boolean,
     onUrlChanged: (String) -> Unit,
+    onFocusablesChanged: (List<FocusableElement>) -> Unit,
     onStreamDetected: (String, String, String) -> Unit,
     onPageLoading: (Boolean) -> Unit,
     onTitleChanged: (String?) -> Unit,
@@ -402,7 +728,7 @@ private fun AndroidWebView(
             .border(
                 width = if (focused) 4.dp else 2.dp,
                 brush = if (focused) Brush.linearGradient(listOf(FocusCyan, FocusGlow))
-                else SolidColor(Color.White.copy(alpha = 0.2f)),
+                else androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(12.dp)
             )
             .background(
@@ -472,6 +798,18 @@ private fun AndroidWebView(
                             post { onPageLoading(false) }
                             view?.title?.let { post { onTitleChanged(it) } }
                             view?.evaluateJavascript(INJECTED_JS, null)
+                            view?.postDelayed({
+                                view.evaluateJavascript(FOCUSABLES_JS) { rawJson ->
+                                    val parsed = parseFocusables(rawJson)
+                                    post { onFocusablesChanged(parsed) }
+                                }
+                            }, 700)
+                            view?.postDelayed({
+                                view.evaluateJavascript(FOCUSABLES_JS) { rawJson ->
+                                    val parsed = parseFocusables(rawJson)
+                                    post { onFocusablesChanged(parsed) }
+                                }
+                            }, 1800)
                         }
 
                         @Suppress("DEPRECATION")
@@ -546,34 +884,58 @@ private class WebViewHolder {
 }
 
 private class TvDpadWebView(context: android.content.Context) : WebView(context) {
+    fun refreshFocusables(callback: (List<FocusableElement>) -> Unit) {
+        evaluateJavascript(FOCUSABLES_JS) { raw ->
+            callback(parseFocusables(raw))
+        }
+    }
 
-    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
-        if (event == null) return super.dispatchKeyEvent(event)
-        if (event.action == KeyEvent.ACTION_DOWN) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                    evaluateJavascript(CLICK_ACTIVE_JS, null)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    evaluateJavascript("window.scrollBy(0, -400);", null)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    evaluateJavascript("window.scrollBy(0, 400);", null)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    evaluateJavascript("window.scrollBy(-400, 0);", null)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    evaluateJavascript("window.scrollBy(400, 0);", null)
-                    return true
-                }
+    fun activateElement(element: FocusableElement) {
+        val js = """
+            (function() {
+                var idx = ${element.index};
+                var sel = window.__tvFocusables ? window.__tvFocusables[idx] : null;
+                if (!sel) { window.scrollBy(0, 400); return; }
+                sel.scrollIntoView({block: 'center', behavior: 'instant'});
+                setTimeout(function() {
+                    if (sel.tagName === 'VIDEO') { sel.play(); }
+                    else if (sel.tagName === 'A' && sel.href) { window.location.href = sel.href; }
+                    else if (sel.click) { sel.click(); }
+                }, 60);
+            })();
+        """.trimIndent()
+        evaluateJavascript(js, null)
+        postDelayed({
+            refreshFocusables { /* updated externally */ }
+        }, 500)
+    }
+}
+
+private fun parseFocusables(raw: String?): List<FocusableElement> {
+    if (raw.isNullOrBlank() || raw == "null") return emptyList()
+    val cleaned = raw.trim().removePrefix("\"").removeSuffix("\"")
+        .replace("\\\"", "\"").replace("\\\\", "\\")
+    return try {
+        val arr = JSONArray(cleaned)
+        buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                add(
+                    FocusableElement(
+                        index = o.optInt("i"),
+                        x = o.optDouble("x", 0.0).toFloat(),
+                        y = o.optDouble("y", 0.0).toFloat(),
+                        w = o.optDouble("w", 0.0).toFloat(),
+                        h = o.optDouble("h", 0.0).toFloat(),
+                        tag = o.optString("t", ""),
+                        label = o.optString("l", ""),
+                        visible = o.optBoolean("v", false)
+                    )
+                )
             }
         }
-        return super.dispatchKeyEvent(event)
+    } catch (e: Exception) {
+        emptyList()
     }
 }
 
@@ -602,32 +964,37 @@ private fun detectFormat(url: String): String {
     }
 }
 
-private const val CLICK_ACTIVE_JS = """
-    (function() {
-        var a = document.activeElement;
-        if (!a || a === document.body) {
-            var els = document.querySelectorAll('a, button, [role=button], video, [tabindex]');
-            if (els.length > 0) {
-                var best = null;
-                var bestY = -1;
-                for (var i = 0; i < els.length; i++) {
-                    var r = els[i].getBoundingClientRect();
-                    if (r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0) {
-                        if (r.top > bestY) { bestY = r.top; best = els[i]; }
-                    }
-                }
-                if (best) {
-                    if (best.tagName === 'VIDEO') { best.play(); }
-                    else if (best.click) { best.click(); }
-                    return;
-                }
-            }
-            return;
-        }
-        if (a.tagName === 'VIDEO') { a.play(); }
-        else if (a.tagName === 'A' && a.href) { window.location.href = a.href; }
-        else if (a.click) { a.click(); }
-    })();
+private const val FOCUSABLES_JS = """
+(function() {
+    try {
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var sels = 'a, button, input, textarea, select, [role=button], [tabindex], video, iframe';
+        var nodes = Array.from(document.querySelectorAll(sels));
+        var result = [];
+        var i = 0;
+        nodes.forEach(function(n) {
+            try {
+                var r = n.getBoundingClientRect();
+                var visible = r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
+                if (!visible) return;
+                var text = (n.innerText || n.value || n.placeholder || n.getAttribute('aria-label') || n.title || '').toString().trim().slice(0, 60);
+                result.push({i: i, x: r.left, y: r.top, w: r.width, h: r.height, t: n.tagName.toLowerCase(), l: text, v: true});
+                n.setAttribute('data-tv-focusable', String(i));
+                i++;
+            } catch (e) {}
+        });
+        window.__tvFocusables = nodes.filter(function(n) {
+            try {
+                var r = n.getBoundingClientRect();
+                return r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
+            } catch (e) { return false; }
+        });
+        return JSON.stringify(result);
+    } catch (e) {
+        return '[]';
+    }
+})();
 """
 
 private const val INJECTED_JS = """
