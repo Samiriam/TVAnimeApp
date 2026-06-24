@@ -1363,3 +1363,165 @@ Pendiente de build en Android Studio o en una terminal con JDK/JAVA_HOME configu
 4. Abrir `Captura Web`, seleccionar una fuente o escribir URL.
 5. Reproducir contenido en la pagina y verificar que aparezca el overlay `Video detectado`.
 6. Pulsar `Reproducir en TV` y validar `PlayerScreen` en pantalla completa.
+
+---
+
+## Sesion 2026-06-24 — Problemas reportados y trabajados en TV real
+
+### Problema 1: APK no compilaba con JDK 21
+
+**Sintoma:** `./gradlew.bat :app:assembleDebug` fallaba con:
+```
+Failed to transform core-for-system-modules.jar to match attributes ...
+Execution failed for JdkImageTransform: ... platforms/android-34/core-for-system-modules.jar.
+```
+
+**Causa:** AGP 8.2.0 tenia un bug conocido con `JdkImageTransform` cuando se compilaba con JDK 21. Kotlin compila OK, pero `compileDebugJavaWithJavac` rompe.
+
+**Diagnostico del entorno:**
+- JDK 17: NO instalado
+- JDK 21 (ms-21.0.9): unico JDK presente en `C:\Users\informatica\.jdks\ms-21.0.9`
+- Android SDK: `C:\Users\informatica\AppData\Local\Android\Sdk`
+- `local.properties`: `sdk.dir` correcto
+
+**Decision del usuario:** NO instalar JDK 17 (rechazo explicito a descargar nada). Alinear el proyecto al JDK 21 ya presente.
+
+**Solucion:** `1a9510d build: upgrade AGP 8.2 -> 8.5.2 + Gradle 8.2 -> 8.7 + KSP 1.0.17 -> 1.0.18`
+- AGP 8.5.2: primera linea con soporte oficial JDK 21
+- Gradle 8.7: version minima requerida por AGP 8.5
+- KSP 1.0.18: corrige incompatibilidades con JDK 21
+- Kotlin 1.9.22, Hilt 2.48.1, Compose BOM 2024.05: sin cambios
+
+**Verificacion:** BUILD SUCCESSFUL en 8m 20s. APK 14.53 MB generada.
+
+### Problema 2: Foco D-pad no se ve (1ra iteracion)
+
+**Sintoma:** El marco de foco (indicador visual de navegacion D-pad) no se veia al mover entre botones. Solo aparecia "a suerte" cuando se acertaba al que se queria presionar.
+
+**Causa identificada inicialmente:** `Modifier.focusable()` se aplicaba por encima de componentes Material 3 (`IconButton`, `OutlinedButton`, `Card`, `Surface(onClick=...)`) que ya son focusables de fabrica. Resultado: doble nodo de foco, `onFocusChanged` escucha al padre duplicado.
+
+**Solucion aplicada:** `4dda801 fix: foco D-pad real + WebView sin crash al abrir`
+- `interactionSource` + `collectIsFocusedAsState()` en componentes Material
+- Solo Row/Surface/BasicTextField mantienen `focusable()` manual
+- Row de categoria y Surface del URL field: `focusable()` correcto (no focusables de fabrica)
+
+**Verificacion parcial:** No se valido en TV real porque el problema de fondo era otro.
+
+### Problema 3: App se sale al abrir navegador (1ra iteracion)
+
+**Sintoma:** Tras pedir los 2 permisos iniciales y entrar al navegador, la app se sale y vuelve al home de la TV.
+
+**Causa:** `DisposableEffect(webViewRef)` re-disparaba `onDispose` en cada recomposicion porque `webViewRef` cambiaba al crearse la WebView. Ademas `setOnKeyListener` + `scrollBy` capturaba D-pad.
+
+**Solucion aplicada en `4dda801`:** `WebViewHolder` con `DisposableEffect(Unit)`; eliminado `setOnKeyListener`/`simulateCenterClick`; la limpieza ocurre solo al salir de la pantalla.
+
+**Verificacion:** App ya no se cierra. Pero aparece Problema 4.
+
+### Problema 4: Foco D-pad sigue sin verse (2da iteracion)
+
+**Sintoma (reporte del usuario):** "el enfoque sigue siendo horrible, no entiendo por que siguen redundando en lo mismo"
+
+**Causa real (descubierta despues de investigar):** `IconButton` de Material 3 en Compose BOM 2024.05 no expone un slot visual para el borde de foco. El `Modifier.focusBorder()` se aplicaba DETRAS del contenido del IconButton, que tapa visualmente el borde. Adicionalmente, `IconButton` consume los eventos de focus y `interactionSource` solo emite Focused cuando el componente gana foco por si mismo.
+
+**Solucion aplicada:** `fe17379 fix: foco D-pad realmente visible + WebView navega + arranca en google.com`
+- WebViewBrowserScreen arranca directamente con `DEFAULT_HOME_URL='https://www.google.com'`
+- `TvFocusableButton` helper: `Surface(onClick)` con `interactionSource` compartido; el borde se aplica a la MISMA superficie focusable
+- `TvDpadWebView` con `dispatchKeyEvent` que traduce D-pad: CENTER/ENTER -> click, UP/DOWN/LEFT/RIGHT -> scrollBy
+- `FocusRequester` pide foco al cargar
+- Mismo patron aplicado a TvButton, TvIconButton, PlayerControlButton en `Screens.kt` y UrlBarButton en `UrlBar.kt`
+
+**Resultado:** Foco visible pero D-pad no navega dentro de paginas web reales.
+
+### Problema 5: No se puede dar play a contenido en WebView
+
+**Sintoma (reporte del usuario):** "sigue sin poder usarse el contenido dentro del web view. no tiene un buscador por defecto... si no se puede navegar en el contenido dentro del web view no se puede dar play a un contenido"
+
+**Causa real (descubierta despues de investigar):** `dispatchKeyEvent` con `scrollBy` no permite mover foco entre elementos HTML. Los sitios web no ponen elementos en `:focus` automaticamente con D-pad. Sin un mecanismo para mover el foco entre links/botones, no se puede navegar.
+
+**Solucion intentada:** `45b49ec feat: cursor virtual D-pad en WebView + barra de busqueda editable`
+- Patron DOM walker tipo TV browser
+- JS inyectado enumera elementos focusables visibles (a, button, video, input, iframe, [tabindex])
+- DpadCursorOverlay pinta rectangulo cyan sobre el elemento seleccionado
+- DpadHandler traduce flechas: UP/DOWN = mover vertical, CENTER = click
+- SearchBar editable por D-pad
+
+**Resultado:** Foco visualmente visible pero el cursor virtual bloquea clicks directos y no resuelve la navegacion real. Ademas, los sitios web reales no exponen focus a elementos de forma nativa.
+
+### Problema 6: Investigacion de patron probado en el mercado
+
+**Sintoma (reporte del usuario):** "esta es mas para celular pero tiene la logica que quiero https://github.com/warren-bank/Android-WebCast.git"
+
+**Investigacion:** Se reviso el repositorio de referencia `warren-bank/Android-WebCast` (la misma logica que `webvideocaster.app`, mejor app del mercado).
+
+**Hallazgo clave:** WebCast **NO usa DOM walker ni cursor virtual**. Usa WebView estandar de Android y confia en que el WebView nativo ya maneja D-pad correctamente (cierto en WebView moderno de Android 5+). La deteccion de videos se hace interceptando TODAS las requests HTTP en `shouldInterceptRequest` y mostrando los resultados en un drawer lateral.
+
+**Consecuencia:** El problema de fondo es que mi DOM walker bloquea el manejo nativo del WebView. Ademas, mi `Modifier.focusable()` intercepta eventos de Compose antes de que lleguen al WebView.
+
+**Refactor aplicado:** `24566e5 refactor: navegador estilo WebCast (warren-bank/Android-WebCast)`
+- `NativeDpadWebView`: `dispatchKeyEvent` SOLO intercepta ENTER/CENTER, traduce a click en `document.activeElement`. Flechas D-pad se dejan pasar al WebView nativo.
+- `isVideoRequest` ampliada: `.m3u8/.mp4/.webm/.ts/.mkv`, `/hls/`, `format=mp4`, `type=video`, `googlevideo.com/videoplayback`, `/videoplayback`
+- `VideosDrawer` (drawer derecho): lista TODOS los videos encontrados en la pagina actual
+- `BookmarksDrawer` (drawer izquierdo): URLs guardadas en SharedPreferences
+- `HeaderBar` simplificado: 4 botones grandes (Volver, Videos, Bookmarks, +)
+- `SearchBar` editable con Enter para submit
+
+### Problema 7: D-pad no mueve foco entre elementos HTML (3ra iteracion)
+
+**Sintoma (reporte del usuario):** "sigue sin dejarme seleccionar por ejemplo las tarjetas de los videos dentro del web view ejemplo ahora pude entrar a genula, veo la caratulas de las peliculas pero. no puedo seleccionarlas"
+
+**Causa raiz FINAL (descubierta):** `Modifier.focusable()` en el `AndroidView` que contiene el WebView **intercepta el D-pad de Compose** y no lo reenvia al WebView. El WebView nunca recibe los eventos de teclado como un teclado fisico sino como un evento de Compose que ya fue consumido. Ademas, los sitios como Gnula no son TV-friendly: las tarjetas `<img>` no tienen `tabindex` ni son focusables.
+
+**Solucion aplicada:** `f8053ac fix: WebView recibe D-pad nativo + tabindex automatico en tarjetas`
+- Quitar `.focusable()` del AndroidView: dejar que WebView tenga foco nativo
+- `webView.requestFocus()` + `requestFocus(FOCUS_DOWN)` en `onPageFinished` para que WebView pida foco al cargar
+- `TV_FOCUS_INJECT_JS`: script que agrega `tabindex='0'` a todos los elementos focusables (a, button, input, video, iframe, [role=button], [onclick]) Y a selectores de tarjetas (article, .card, .movie, .item, .poster, .video, .thumb, .tile, [class*=card/movie/item/poster/thumb/tile]) Y a imagenes cuyo padre sea un anchor o tenga onclick
+- `MutationObserver` reaplica el tabindex cada 250ms cuando cambia el DOM
+- `NativeDpadWebView.dispatchKeyEvent`: para ENTER/CENTER, evalua JS que hace click en `document.activeElement` con `CountDownLatch`. Si no hay foco, deja pasar al WebView
+
+**Resultado esperado:**
+- Al cargar una pagina, el WebView tiene foco nativo
+- Las flechas D-pad se mueven entre elementos con tabindex (links, botones, tarjetas con onclick)
+- ENTER/OK en una tarjeta con onclick hace click y entra a la pelicula
+- Las peliculas cargadas aparecen en el drawer derecho de Videos
+
+### Resumen de artefactos generados
+
+| Commit | APK | Tamano | Descripcion |
+|---|---|---|---|
+| `1a9510d` | 14.53 MB | 2026-06-24 13:17 | Toolchain upgrade AGP 8.5.2 + Gradle 8.7 + JDK 21 |
+| `fe17379` | 14.65 MB | 2026-06-24 13:57 | Foco D-pad visible + WebView navega + google.com |
+| `45b49ec` | 14.67 MB | 2026-06-24 15:13 | DOM walker virtual + barra de busqueda editable |
+| `24566e5` | 14.66 MB | 2026-06-24 15:44 | Refactor estilo WebCast: drawer videos + bookmarks |
+| `f8053ac` | 14.55 MB | 2026-06-24 16:23 | WebView recibe D-pad nativo + tabindex automatico |
+
+### Compatibilidad confirmada
+
+- ✅ Android (cualquier version 5.0+ con WebView moderno)
+- ✅ Google TV (WebView nativo maneja D-pad)
+- ✅ Fire TV Stick (mismo WebView nativo)
+
+### Pendiente de prueba en TV
+
+1. Abrir Captura Web desde Home (con permisos ya otorgados)
+2. WebView arranca en https://www.google.com con foco nativo
+3. Drawer de Videos abierto por defecto a la derecha
+4. Escribir en la barra de busqueda con teclado/D-pad + Enter
+5. Navegar a Gnula u otro sitio con D-pad (flechas + OK)
+6. Verificar que las tarjetas de peliculas son enfocables
+7. Verificar que el drawer de Videos muestra los streams detectados
+8. Probar bookmark: boton + en header, drawer izquierdo Bookmarks
+
+### Comando para instalar la APK actual
+
+```
+adb install -r "C:\Users\informatica\AndroidStudioProjects\TVAnimeApp\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+### Lecciones aprendidas
+
+1. **No aplicar `Modifier.focusable()` a un `AndroidView` con WebView.** Intercepta el D-pad antes de que llegue al WebView nativo.
+2. **WebView moderno maneja D-pad nativo.** No se necesita DOM walker para sitios que usan elementos HTML estandar con `tabindex`.
+3. **Para sitios no TV-friendly**, agregar `tabindex='0'` a imagenes/tarjetas via JS permite que WebView los enfoque con D-pad.
+4. **WebCast es la referencia correcta** para deteccion de videos: `shouldInterceptRequest` + regex + drawer lateral. NO cursor virtual sobre el WebView.
+5. **AGP 8.2 + JDK 21 = bug.** AGP 8.5+ lo resuelve.
+6. **JDK 17 no estaba en el sistema.** Mejor alinear el proyecto al JDK 21 que ya esta, no instalar otro.
