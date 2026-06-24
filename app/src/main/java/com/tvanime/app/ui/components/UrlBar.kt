@@ -130,24 +130,27 @@ private fun UrlBarButton(
     val focused by interaction.collectIsFocusedAsState()
     val alpha = if (enabled) 1f else 0.4f
 
-    IconButton(
+    androidx.compose.material3.Surface(
         onClick = onClick,
         enabled = enabled,
         interactionSource = interaction,
         modifier = Modifier
-            .size(40.dp)
+            .size(48.dp)
             .border(
                 if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-                else BorderStroke(0.dp, Color.Transparent),
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                 RoundedCornerShape(10.dp)
-            )
-            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+            ),
+        color = if (focused) FocusBg else Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(10.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(22.dp),
-            tint = Color.White.copy(alpha = alpha)
-        )
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(22.dp),
+                tint = Color.White.copy(alpha = alpha)
+            )
+        }
     }
 }

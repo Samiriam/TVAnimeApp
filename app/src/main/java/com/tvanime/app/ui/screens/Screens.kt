@@ -242,22 +242,31 @@ private fun TvButton(text: String, icon: androidx.compose.ui.graphics.vector.Ima
     val focused by interaction.collectIsFocusedAsState()
     val prim = MaterialTheme.colorScheme.primary
 
-    OutlinedButton(
+    Surface(
         onClick = onClick,
         interactionSource = interaction,
         modifier = Modifier
             .scale(if (focused) 1.08f else 1f)
-            .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(14.dp))
-            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = if (focused) prim else MaterialTheme.colorScheme.onSurface
-        )
+            .border(
+                if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                RoundedCornerShape(14.dp)
+            ),
+        color = if (focused) FocusBg else Color.Transparent,
+        shape = RoundedCornerShape(14.dp)
     ) {
-        Icon(icon, null, Modifier.size(22.dp))
-        Spacer(Modifier.size(8.dp))
-        Text(text, fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium)
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(icon, null, Modifier.size(22.dp), tint = if (focused) prim else MaterialTheme.colorScheme.onSurface)
+            Text(
+                text,
+                color = if (focused) prim else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -266,13 +275,23 @@ private fun TvIconButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val prim = MaterialTheme.colorScheme.primary
-    IconButton(
+    Surface(
         onClick = onClick,
         interactionSource = interaction,
         modifier = Modifier
-            .border(if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(10.dp))
-            .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
-    ) { Icon(icon, "Accion", Modifier.size(size), tint = if (focused) prim else MaterialTheme.colorScheme.onSurface) }
+            .size(48.dp)
+            .border(
+                if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                RoundedCornerShape(10.dp)
+            ),
+        color = if (focused) FocusBg else Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(icon, "Accion", Modifier.size(size), tint = if (focused) prim else MaterialTheme.colorScheme.onSurface)
+        }
+    }
 }
 
 @Composable
@@ -445,11 +464,20 @@ fun PlayerScreen(videoUrl: String, modifier: Modifier = Modifier, headers: Map<S
 private fun PlayerControlButton(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    IconButton(
+    Surface(
         onClick = onClick,
         interactionSource = interaction,
-        modifier = Modifier.size(60.dp)
-            .border(if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow))) else BorderStroke(0.dp, Color.Transparent), RoundedCornerShape(12.dp))
-            .background(if (focused) FocusHighlight else Color.Transparent, RoundedCornerShape(12.dp))
-    ) { Icon(icon, contentDescription, Modifier.size(32.dp), tint = Color.White) }
+        modifier = Modifier.size(64.dp)
+            .border(
+                if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                RoundedCornerShape(12.dp)
+            ),
+        color = if (focused) FocusHighlight else Color.White.copy(alpha = 0.06f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription, Modifier.size(32.dp), tint = Color.White)
+        }
+    }
 }

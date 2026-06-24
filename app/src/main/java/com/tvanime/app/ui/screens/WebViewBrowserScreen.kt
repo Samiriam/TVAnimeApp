@@ -4,16 +4,20 @@ import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.KeyEvent
+import android.view.View
 import android.webkit.PermissionRequest
-import android.webkit.WebView
 import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,14 +30,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.BorderStroke
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tvanime.app.ui.components.UrlBar
@@ -42,6 +48,8 @@ import com.tvanime.app.ui.theme.FocusBg
 import com.tvanime.app.ui.theme.FocusCyan
 import com.tvanime.app.ui.theme.FocusGlow
 import com.tvanime.app.ui.viewmodel.WebViewBrowserViewModel
+
+private const val DEFAULT_HOME_URL = "https://www.google.com"
 
 @Composable
 fun WebViewBrowserScreen(
@@ -54,9 +62,12 @@ fun WebViewBrowserScreen(
     val uiState by viewModel.uiState.collectAsState()
     val detectedStream by viewModel.detectedStream.collectAsState()
 
-    var showSiteSelector by remember { mutableStateOf(true) }
+    val startingUrl = initialUrl?.takeIf { it.isNotBlank() } ?: DEFAULT_HOME_URL
+    var currentUrl by remember { mutableStateOf(startingUrl) }
+    var showSiteSelector by remember { mutableStateOf(false) }
     var webPermissionMessage by remember { mutableStateOf<String?>(null) }
     val webViewHolder = remember { WebViewHolder() }
+    val webViewFocusRequester = remember { FocusRequester() }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -70,85 +81,52 @@ fun WebViewBrowserScreen(
         }
     }
 
-    LaunchedEffect(initialUrl) {
-        if (!initialUrl.isNullOrBlank()) {
-            viewModel.setDefaultUrl(initialUrl)
-            showSiteSelector = false
+    LaunchedEffect(startingUrl) {
+        viewModel.setDefaultUrl(startingUrl)
+    }
+
+    LaunchedEffect(webViewHolder.webView) {
+        if (webViewHolder.webView != null) {
+            webViewFocusRequester.requestFocus()
         }
     }
 
     BackHandler {
-        onBack()
+        val wv = webViewHolder.webView
+        if (wv != null && wv.canGoBack()) {
+            wv.goBack()
+        } else {
+            onBack()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val backInteraction = remember { MutableInteractionSource() }
-                val backFocused by backInteraction.collectIsFocusedAsState()
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .focusBorder(backFocused)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(26.dp), tint = Color.White)
-                }
-
-                Text(
-                    "Captura Web",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    "Navega con el control, reproduce en la pagina y espera el aviso de stream detectado.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.62f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                val selectorInteraction = remember { MutableInteractionSource() }
-                val selectorFocused by selectorInteraction.collectIsFocusedAsState()
-                IconButton(
-                    onClick = { showSiteSelector = !showSiteSelector },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .focusBorder(selectorFocused),
-                    interactionSource = selectorInteraction
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.List,
-                        contentDescription = "Sitios",
-                        modifier = Modifier.size(26.dp),
-                        tint = if (selectorFocused) FocusCyan else Color.White
-                    )
-                }
-            }
+            HeaderBar(
+                onBack = onBack,
+                onToggleSelector = { showSiteSelector = !showSiteSelector },
+                selectorOpen = showSiteSelector
+            )
 
             AnimatedVisibility(visible = !showSiteSelector) {
-                val currentUrl = uiState.currentUrl
                 UrlBar(
                     currentUrl = currentUrl,
-                    onUrlChanged = viewModel::setDefaultUrl,
+                    onUrlChanged = { currentUrl = it },
                     onNavigate = { url ->
-                        viewModel.setDefaultUrl(url)
-                        viewModel.addToHistory(url)
-                        showSiteSelector = false
+                        val normalized = if (url.startsWith("http://") || url.startsWith("https://")) url else "https://$url"
+                        currentUrl = normalized
+                        viewModel.setDefaultUrl(normalized)
+                        viewModel.addToHistory(normalized)
                     },
-                    onBack = {},
-                    onForward = {},
-                    onRefresh = {},
-                    onHomeClick = { showSiteSelector = true },
-                    canGoBack = false,
-                    canGoForward = false,
+                    onBack = { webViewHolder.webView?.goBack() },
+                    onForward = { webViewHolder.webView?.goForward() },
+                    onRefresh = { webViewHolder.webView?.reload() },
+                    onHomeClick = {
+                        currentUrl = DEFAULT_HOME_URL
+                        viewModel.setDefaultUrl(DEFAULT_HOME_URL)
+                    },
+                    canGoBack = webViewHolder.webView?.canGoBack() == true,
+                    canGoForward = webViewHolder.webView?.canGoForward() == true,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -162,6 +140,7 @@ fun WebViewBrowserScreen(
             ) {
                 SiteSelectorPanel(
                     onSiteSelected = { url ->
+                        currentUrl = url
                         viewModel.setDefaultUrl(url)
                         viewModel.addToHistory(url)
                         showSiteSelector = false
@@ -169,17 +148,24 @@ fun WebViewBrowserScreen(
                 )
             }
 
-            Box(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+            ) {
                 AndroidWebView(
                     holder = webViewHolder,
-                    url = if (showSiteSelector) "about:blank" else uiState.currentUrl,
+                    url = currentUrl,
+                    focusRequester = webViewFocusRequester,
                     canGrantWebPermissions = context.hasWebRuntimePermissions(),
                     onUrlChanged = {
+                        currentUrl = it
                         viewModel.setDefaultUrl(it)
                         viewModel.addToHistory(it)
                     },
                     onStreamDetected = { url, format, domain ->
-                        viewModel.onStreamDetected(url, format, domain, uiState.currentUrl)
+                        viewModel.onStreamDetected(url, format, domain, currentUrl)
                     },
                     onPageLoading = {},
                     onTitleChanged = {},
@@ -226,14 +212,82 @@ fun WebViewBrowserScreen(
     }
 }
 
-private fun Modifier.focusBorder(focused: Boolean): Modifier = this
-    .scale(if (focused) 1.05f else 1f)
-    .border(
-        if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
-        else BorderStroke(0.dp, Color.Transparent),
-        RoundedCornerShape(10.dp)
-    )
-    .background(if (focused) FocusBg else Color.Transparent, RoundedCornerShape(10.dp))
+@Composable
+private fun HeaderBar(
+    onBack: () -> Unit,
+    onToggleSelector: () -> Unit,
+    selectorOpen: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        TvFocusableButton(
+            onClick = onBack,
+            contentDescription = "Volver",
+            modifier = Modifier.size(56.dp)
+        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(28.dp), tint = Color.White) }
+
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Captura Web",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Navega con el control, reproduce en la pagina y espera el aviso de stream detectado.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.62f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        TvFocusableButton(
+            onClick = onToggleSelector,
+            contentDescription = if (selectorOpen) "Cerrar sitios" else "Abrir sitios",
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(
+                imageVector = if (selectorOpen) Icons.Default.Close else Icons.Default.List,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+fun TvFocusableButton(
+    onClick: () -> Unit,
+    contentDescription: String? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    Surface(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = modifier
+            .scale(if (focused) 1.08f else 1f)
+            .border(
+                if (focused) BorderStroke(3.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                RoundedCornerShape(12.dp)
+            ),
+        color = if (focused) FocusBg else Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) { content() }
+    }
+}
 
 @Composable
 private fun SiteSelectorPanel(onSiteSelected: (String) -> Unit) {
@@ -275,17 +329,19 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
 
-    Card(
+    Surface(
         onClick = onClick,
         interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
             .scale(if (focused) 1.03f else 1f)
-            .focusBorder(focused)
+            .border(
+                if (focused) BorderStroke(4.dp, Brush.linearGradient(listOf(FocusCyan, FocusGlow)))
+                else BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                RoundedCornerShape(14.dp)
+            )
             .focusable(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (focused) 1f else 0.6f)
-        ),
+        color = if (focused) FocusBg else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
         shape = RoundedCornerShape(14.dp)
     ) {
         Row(
@@ -293,7 +349,7 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(color = FocusCyan.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+            Surface(color = FocusCyan.copy(alpha = 0.18f), shape = RoundedCornerShape(10.dp)) {
                 Text(text = site.icon, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelLarge, color = FocusCyan, fontWeight = FontWeight.Bold)
             }
@@ -326,6 +382,7 @@ private fun SiteCard(site: SiteItem, onClick: () -> Unit) {
 private fun AndroidWebView(
     holder: WebViewHolder,
     url: String,
+    focusRequester: FocusRequester,
     canGrantWebPermissions: Boolean,
     onUrlChanged: (String) -> Unit,
     onStreamDetected: (String, String, String) -> Unit,
@@ -334,135 +391,150 @@ private fun AndroidWebView(
     onPermissionRequest: (String) -> Unit
 ) {
     var webViewError by remember { mutableStateOf<String?>(null) }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
 
     AndroidView(
         modifier = Modifier
             .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable(interactionSource = interaction)
             .border(
-                width = 3.dp,
-                color = if (webViewError != null) Color.Red.copy(alpha = 0.5f) else FocusCyan.copy(alpha = 0.4f),
+                width = if (focused) 4.dp else 2.dp,
+                brush = if (focused) Brush.linearGradient(listOf(FocusCyan, FocusGlow))
+                else SolidColor(Color.White.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(12.dp)
+            )
+            .background(
+                if (focused) FocusBg.copy(alpha = 0.15f) else Color.Transparent,
+                RoundedCornerShape(12.dp)
             ),
         factory = { ctx ->
-            WebView(ctx).also { holder.webView = it }.apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.mediaPlaybackRequiresUserGesture = false
-                settings.setSupportZoom(false)
-                settings.builtInZoomControls = false
-                settings.loadWithOverviewMode = true
-                settings.useWideViewPort = true
-                settings.cacheMode = WebSettings.LOAD_DEFAULT
-                settings.setGeolocationEnabled(false)
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                settings.userAgentString = com.tvanime.app.data.capture.WebViewSessionManager.USER_AGENT
-                android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            TvDpadWebView(ctx).also { wv ->
+                holder.webView = wv
+                wv.apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.setSupportZoom(false)
+                    settings.builtInZoomControls = false
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    settings.setGeolocationEnabled(false)
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
+                    settings.userAgentString = com.tvanime.app.data.capture.WebViewSessionManager.USER_AGENT
+                    android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    isFocusable = true
+                    isFocusableInTouchMode = true
 
-                setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                    setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-                webViewClient = object : android.webkit.WebViewClient() {
-                    override fun shouldInterceptRequest(
-                        view: android.webkit.WebView?,
-                        request: android.webkit.WebResourceRequest?
-                    ): android.webkit.WebResourceResponse? {
-                        val reqUrl = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-                        val lower = reqUrl.lowercase()
+                    webViewClient = object : android.webkit.WebViewClient() {
+                        override fun shouldInterceptRequest(
+                            view: android.webkit.WebView?,
+                            request: android.webkit.WebResourceRequest?
+                        ): android.webkit.WebResourceResponse? {
+                            val reqUrl = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                            val lower = reqUrl.lowercase()
 
-                        if (lower.contains(".m3u8") || lower.contains(".mp4") ||
-                            lower.contains(".webm") || lower.contains(".ts") ||
-                            lower.contains(".mkv") || lower.contains("manifest") ||
-                            lower.contains("segment") || lower.contains("playlist.m3u8") ||
-                            lower.contains("chunk")) {
+                            if (lower.contains(".m3u8") || lower.contains(".mp4") ||
+                                lower.contains(".webm") || lower.contains(".ts") ||
+                                lower.contains(".mkv") || lower.contains("manifest") ||
+                                lower.contains("segment") || lower.contains("playlist.m3u8") ||
+                                lower.contains("chunk")) {
 
-                            val format = when {
-                                lower.contains(".m3u8") -> "HLS"
-                                lower.contains(".mp4") -> "MP4"
-                                lower.contains(".webm") -> "WEBM"
-                                lower.contains(".mkv") -> "MKV"
-                                lower.contains(".ts") -> "TS"
-                                else -> "VIDEO"
+                                val format = when {
+                                    lower.contains(".m3u8") -> "HLS"
+                                    lower.contains(".mp4") -> "MP4"
+                                    lower.contains(".webm") -> "WEBM"
+                                    lower.contains(".mkv") -> "MKV"
+                                    lower.contains(".ts") -> "TS"
+                                    else -> "VIDEO"
+                                }
+
+                                post { onStreamDetected(reqUrl, format, request.url.host ?: "") }
                             }
 
-                            post { onStreamDetected(reqUrl, format, request.url.host ?: "") }
+                            return super.shouldInterceptRequest(view, request)
                         }
 
-                        return super.shouldInterceptRequest(view, request)
-                    }
+                        override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            webViewError = null
+                            url?.let { post { onUrlChanged(it) } }
+                            post { onPageLoading(true) }
+                        }
 
-                    override fun onPageStarted(view: android.webkit.WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                        super.onPageStarted(view, url, favicon)
-                        webViewError = null
-                        url?.let { post { onUrlChanged(it) } }
-                        post { onPageLoading(true) }
-                    }
+                        override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            post { onPageLoading(false) }
+                            view?.title?.let { post { onTitleChanged(it) } }
+                            view?.evaluateJavascript(INJECTED_JS, null)
+                        }
 
-                    override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        post { onPageLoading(false) }
-                        view?.title?.let { post { onTitleChanged(it) } }
-                        view?.evaluateJavascript(INJECTED_JS, null)
-                    }
+                        @Suppress("DEPRECATION")
+                        override fun onReceivedError(
+                            view: android.webkit.WebView?,
+                            errorCode: Int,
+                            description: String?,
+                            failingUrl: String?
+                        ) {
+                            super.onReceivedError(view, errorCode, description, failingUrl)
+                            webViewError = description ?: "Error de carga"
+                        }
 
-                    @Suppress("DEPRECATION")
-                    override fun onReceivedError(
-                        view: android.webkit.WebView?,
-                        errorCode: Int,
-                        description: String?,
-                        failingUrl: String?
-                    ) {
-                        super.onReceivedError(view, errorCode, description, failingUrl)
-                        webViewError = description ?: "Error de carga"
-                    }
+                        override fun onReceivedHttpError(
+                            view: android.webkit.WebView?,
+                            request: android.webkit.WebResourceRequest?,
+                            errorResponse: android.webkit.WebResourceResponse?
+                        ) {
+                            super.onReceivedHttpError(view, request, errorResponse)
+                            if (request?.isForMainFrame == true) {
+                                webViewError = "Error HTTP: ${errorResponse?.statusCode}"
+                            }
+                        }
 
-                    override fun onReceivedHttpError(
-                        view: android.webkit.WebView?,
-                        request: android.webkit.WebResourceRequest?,
-                        errorResponse: android.webkit.WebResourceResponse?
-                    ) {
-                        super.onReceivedHttpError(view, request, errorResponse)
-                        if (request?.isForMainFrame == true) {
-                            webViewError = "Error HTTP: ${errorResponse?.statusCode}"
+                        override fun onRenderProcessGone(
+                            view: android.webkit.WebView?,
+                            detail: android.webkit.RenderProcessGoneDetail?
+                        ): Boolean {
+                            webViewError = "El motor WebView se reinicio"
+                            view?.apply {
+                                stopLoading()
+                                loadUrl("about:blank")
+                            }
+                            return true
                         }
                     }
 
-                    override fun onRenderProcessGone(
-                        view: android.webkit.WebView?,
-                        detail: android.webkit.RenderProcessGoneDetail?
-                    ): Boolean {
-                        webViewError = "El motor WebView se reinicio"
-                        view?.apply {
-                            stopLoading()
-                            loadUrl("about:blank")
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onPermissionRequest(request: PermissionRequest?) {
+                            val resources = request?.resources ?: return
+                            if (canGrantWebPermissions) {
+                                request.grant(resources)
+                                post { onPermissionRequest("Permiso concedido a la pagina actual") }
+                            } else {
+                                request.deny()
+                                post { onPermissionRequest("Permiso bloqueado: autoriza camara/microfono en la pantalla inicial") }
+                            }
                         }
-                        return true
                     }
+
+                    addJavascriptInterface(object {
+                        @android.webkit.JavascriptInterface
+                        fun onVideoDetected(url: String) {
+                            val format = detectFormat(url)
+                            post { onStreamDetected(url, format, "") }
+                        }
+                    }, "AndroidCapture")
                 }
-
-                webChromeClient = object : android.webkit.WebChromeClient() {
-                    override fun onPermissionRequest(request: PermissionRequest?) {
-                        val resources = request?.resources ?: return
-                        if (canGrantWebPermissions) {
-                            request.grant(resources)
-                            post { onPermissionRequest("Permiso concedido a la pagina actual") }
-                        } else {
-                            request.deny()
-                            post { onPermissionRequest("Permiso bloqueado: autoriza camara/microfono en la pantalla inicial") }
-                        }
-                    }
-                }
-
-                addJavascriptInterface(object {
-                    @android.webkit.JavascriptInterface
-                    fun onVideoDetected(url: String) {
-                        val format = detectFormat(url)
-                        post { onStreamDetected(url, format, "") }
-                    }
-                }, "AndroidCapture")
             }
         },
         update = { webView ->
-            if (webView.url != url && !url.startsWith("about:blank")) {
+            val current = webView.url ?: ""
+            if (current != url && url.isNotBlank() && !url.startsWith("about:blank")) {
                 webView.loadUrl(url)
             }
         }
@@ -470,7 +542,39 @@ private fun AndroidWebView(
 }
 
 private class WebViewHolder {
-    var webView: WebView? = null
+    var webView: TvDpadWebView? = null
+}
+
+private class TvDpadWebView(context: android.content.Context) : WebView(context) {
+
+    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+        if (event == null) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                    evaluateJavascript(CLICK_ACTIVE_JS, null)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    evaluateJavascript("window.scrollBy(0, -400);", null)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    evaluateJavascript("window.scrollBy(0, 400);", null)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    evaluateJavascript("window.scrollBy(-400, 0);", null)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    evaluateJavascript("window.scrollBy(400, 0);", null)
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
 }
 
 private fun android.content.Context.hasWebRuntimePermissions(): Boolean {
@@ -497,6 +601,34 @@ private fun detectFormat(url: String): String {
         else -> "VIDEO"
     }
 }
+
+private const val CLICK_ACTIVE_JS = """
+    (function() {
+        var a = document.activeElement;
+        if (!a || a === document.body) {
+            var els = document.querySelectorAll('a, button, [role=button], video, [tabindex]');
+            if (els.length > 0) {
+                var best = null;
+                var bestY = -1;
+                for (var i = 0; i < els.length; i++) {
+                    var r = els[i].getBoundingClientRect();
+                    if (r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0) {
+                        if (r.top > bestY) { bestY = r.top; best = els[i]; }
+                    }
+                }
+                if (best) {
+                    if (best.tagName === 'VIDEO') { best.play(); }
+                    else if (best.click) { best.click(); }
+                    return;
+                }
+            }
+            return;
+        }
+        if (a.tagName === 'VIDEO') { a.play(); }
+        else if (a.tagName === 'A' && a.href) { window.location.href = a.href; }
+        else if (a.click) { a.click(); }
+    })();
+"""
 
 private const val INJECTED_JS = """
     (function() {
