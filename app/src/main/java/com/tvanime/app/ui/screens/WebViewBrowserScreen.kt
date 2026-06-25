@@ -104,14 +104,6 @@ fun WebViewBrowserScreen(
         requestWebViewFocus()
     }
 
-    BackHandler {
-        when {
-            uiState.showOverlay -> viewModel.dismissOverlay()
-            webViewHolder.webView?.canGoBack() == true -> webViewHolder.webView?.goBack()
-            else -> onBack()
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 AndroidWebView(
                     holder = webViewHolder,
@@ -230,7 +222,7 @@ private fun AndroidWebView(
                     settings.userAgentString = WebViewSessionManager.USER_AGENT
                     android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     isFocusable = true
-                    isFocusableInTouchMode = false
+                    isFocusableInTouchMode = true
                     setOnFocusChangeListener { _, hasFocus -> focused = hasFocus }
 
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -355,6 +347,10 @@ private class NativeDpadWebView(context: android.content.Context) : WebView(cont
             return super.dispatchKeyEvent(event)
         }
         when (event.keyCode) {
+            KeyEvent.KEYCODE_BACK -> {
+                if (canGoBack()) { goBack(); return true }
+                return super.dispatchKeyEvent(event)
+            }
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (jsHandled("window.__tvMoveFocus ? window.__tvMoveFocus('up') : false")) return true
             }
