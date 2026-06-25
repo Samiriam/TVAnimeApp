@@ -73,7 +73,7 @@ fun HomeScreen(
                 Column(Modifier.weight(1f)) {
                     Text("TVAnime Capture", style = MaterialTheme.typography.displaySmall,
                         color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                    Text("Abre una pagina publica, detecta enlaces reproducibles y envia el stream al reproductor TV.",
+                    Text("Modo actual: Explorador WebView TV | build 1.1. Abre una pagina publica, detecta enlaces reproducibles y envia el stream al reproductor TV.",
                         style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 PermissionStatusPill(permissionsGranted)
@@ -371,7 +371,14 @@ fun SettingsScreen(
 }
 
 @Composable
-fun DetailScreen(contentItem: ContentItem?, isFavorite: Boolean, onPlayClick: () -> Unit, onToggleFavorite: () -> Unit, onBack: () -> Unit) {
+fun DetailScreen(
+    contentItem: ContentItem?,
+    isFavorite: Boolean,
+    onPlayClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onBack: () -> Unit,
+    onOpenBrowser: () -> Unit
+) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp)) {
         TvIconButton(onClick = onBack, icon = Icons.AutoMirrored.Filled.ArrowBack)
         Spacer(Modifier.height(20.dp))
@@ -394,7 +401,7 @@ fun DetailScreen(contentItem: ContentItem?, isFavorite: Boolean, onPlayClick: ()
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                TvButton("Abrir en navegador", Icons.Default.Search) { onBack() }
+                TvButton("Abrir en navegador", Icons.Default.Search) { onOpenBrowser() }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     TvButton("Reproducir", Icons.Default.PlayArrow) { onPlayClick() }

@@ -65,8 +65,6 @@ fun TVAnimeNavHost(
         }
 
         composable("browser") {
-            BackHandler { navController.popBackStack() }
-
             WebViewBrowserScreen(
                 initialUrl = null,
                 onBack = { navController.popBackStack() },
@@ -123,7 +121,8 @@ fun TVAnimeNavHost(
                         ?.isFavorite ?: false
                     vm.onToggleFavorite(currentFav)
                 },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenBrowser = { navController.navigate("browser") }
             )
         }
 

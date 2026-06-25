@@ -1569,3 +1569,48 @@ Timestamp: 2026-06-24 20:03:20
 Mitigado por codigo y compilacion. Pendiente de retest en TV/Google TV: abrir Home -> Captura Web -> confirmar que ya no se cierra al entrar al navegador y luego validar D-pad sobre tarjetas dentro del WebView.
 
 Nota de UX: la pantalla mantiene dos modos claros. La interfaz propia de la app se usa desde header, barra de busqueda y drawers; cuando la accion vuelve al WebView, los drawers se cierran y el foco se devuelve al WebView nativo para priorizar la navegacion interna de la pagina.
+
+---
+
+## Sesion 2026-06-24 20:45 — Verificacion de ruta activa e interfaz antigua
+
+### Problema reportado
+
+El usuario reporto que seguia abriendo la interfaz antigua y que al entrar al modo explorador la app seguia cerrandose.
+
+### Hallazgos confirmados en codigo
+
+| Hallazgo | Evidencia | Riesgo |
+|---|---|---|
+| No habia dispositivo ADB conectado para capturar logcat ni instalar directamente | `adb devices -l` sin dispositivos listados | No se puede confirmar stacktrace real desde terminal |
+| La Home seguia mostrando una interfaz de tarjetas sin marca de version/build | `HomeScreen` no exponia build ni modo actual | Dificil distinguir APK vieja instalada vs APK nueva generada |
+| El boton `Abrir en navegador` dentro de `DetailScreen` no abria el navegador | `TvButton("Abrir en navegador"... ) { onBack() }` | El usuario podia volver a Home y percibir que abre la interfaz antigua |
+| La ruta `browser` tenia un `BackHandler` externo adicional al de `WebViewBrowserScreen` | `TVAnimeNavHost` + `WebViewBrowserScreen` manejaban back | Riesgo de comportamiento ambiguo entre interfaz app y navegacion del WebView |
+
+### Correcciones aplicadas
+
+| Archivo | Cambio |
+|---|---|
+| `app/build.gradle.kts` | Version subida a `versionCode = 2`, `versionName = "1.1"` para distinguir la APK instalada. |
+| `Screens.kt` | Home muestra texto visible `Modo actual: Explorador WebView TV | build 1.1`. |
+| `WebViewBrowserScreen.kt` | Header del explorador muestra `Explorador WebView 1.1`. |
+| `TVAnimeNavHost.kt` | Eliminado `BackHandler` duplicado de la ruta `browser`; el back lo maneja `WebViewBrowserScreen`. |
+| `Screens.kt` / `TVAnimeNavHost.kt` | `DetailScreen` ahora recibe `onOpenBrowser` y el boton `Abrir en navegador` navega realmente a `browser`. |
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `./gradlew.bat :app:assembleDebug --no-daemon --console=plain` con JDK 21 | `BUILD SUCCESSFUL in 25s` |
+| `rg -n "versionCode|versionName|Explorador WebView 1.1|Modo actual: Explorador|Abrir en navegador|onOpenBrowser"` | Confirma version 1.1, marcas visibles y ruta al navegador |
+
+APK generado:
+
+```
+C:\Users\informatica\AndroidStudioProjects\TVAnimeApp\app\build\outputs\apk\debug\app-debug.apk
+Tamano: 14555915 bytes
+```
+
+### Pendiente critico
+
+Instalar esta APK 1.1 en la TV y confirmar visualmente que aparece `Modo actual: Explorador WebView TV | build 1.1` en Home y `Explorador WebView 1.1` en el navegador. Si no aparecen esos textos, la TV sigue ejecutando una APK anterior.

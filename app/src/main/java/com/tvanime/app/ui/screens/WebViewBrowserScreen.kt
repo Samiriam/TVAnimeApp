@@ -383,6 +383,14 @@ private fun HeaderBar(
         ) {
             Icon(Icons.Default.Add, "Agregar", Modifier.size(24.dp), tint = Color.White)
         }
+
+        Text(
+            text = "Explorador WebView 1.1",
+            color = FocusCyan,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 10.dp)
+        )
     }
 }
 
