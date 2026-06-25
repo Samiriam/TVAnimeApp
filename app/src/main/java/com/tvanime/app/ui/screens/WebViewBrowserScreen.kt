@@ -333,35 +333,44 @@ private class WebViewHolder {
 }
 
 private class NativeDpadWebView(context: android.content.Context) : WebView(context) {
+    private fun jsHandled(script: String): Boolean {
+        var result: String? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        post {
+            evaluateJavascript(script) { value ->
+                result = value
+                latch.countDown()
+            }
+        }
+        return try {
+            latch.await(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+            "true" == result
+        } catch (e: InterruptedException) {
+            false
+        }
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
         if (event == null || event.action != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event)
         }
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
-                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('up')", null)
-                return true
+                if (jsHandled("window.__tvMoveFocus ? window.__tvMoveFocus('up') : false")) return true
             }
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('down')", null)
-                return true
+                if (jsHandled("window.__tvMoveFocus ? window.__tvMoveFocus('down') : false")) return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('left')", null)
-                return true
+                if (jsHandled("window.__tvMoveFocus ? window.__tvMoveFocus('left') : false")) return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('right')", null)
-                return true
+                if (jsHandled("window.__tvMoveFocus ? window.__tvMoveFocus('right') : false")) return true
             }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                evaluateJavascript(
-                    "window.__tvActivateFocus ? window.__tvActivateFocus() : false",
-                    null
-                )
-                return true
+                if (jsHandled("window.__tvActivateFocus ? window.__tvActivateFocus() : false")) return true
             }
         }
         return super.dispatchKeyEvent(event)

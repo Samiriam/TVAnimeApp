@@ -1712,3 +1712,79 @@ Cambiar solo `startDestination = "browser"` no era suficiente si Android/Navigat
 | `app/build.gradle.kts` | Version subida a `versionCode = 5`, `versionName = "1.4"` para distinguir esta correccion. |
 
 Resultado esperado: aunque haya estado previo, la app ya no tiene ruta navegable a la Home con boton `Abrir navegador`. La unica interfaz activa al arranque es el WebView; la app solo toma control al reproducir el enlace capturado.
+
+---
+
+## Depuracion 2026-06-24 (final del dia) — UI antigua y WebView sin seleccion
+
+### Problemas reportados por el usuario
+
+1. "Incluso despues de los commit y cambios me sigue mostrando la interfaz antigua"
+2. "No se puede seleccionar nada dentro del web view"
+3. "Sigue sin dejarme seleccionar las tarjetas de los videos dentro del web view"
+
+### Diagnostico
+
+| Item | Estado en disco | Estado en repo |
+|---|---|---|
+| APK en `app\build\outputs\apk\debug\app-debug.apk` | 14.51 MB, `2026-06-24 21:07:56` | Corresponde al commit `3eed063` (incluye 4 commits posteriores a mi ultimo `c282602`) |
+| `MainActivity.kt` | Arranca directo en `TVAnimeNavHost` sin `PermissionGateScreen` | `cd07831` quito el gate de permisos y arranca en WebView |
+| `TVAnimeNavHost.kt` | `startDestination = "browser"`, sin rutas `home`/`settings`/`detail` | `3eed063` elimino rutas que no son navegador |
+| `WebViewBrowserScreen.kt` | 571 lineas, incluye `TV_FOCUS_INJECT_JS` con `__tvMoveFocus` y `__tvActivateFocus` | `12b1df6` + `0ce6e88` reescribieron el JS |
+| `NativeDpadWebView.dispatchKeyEvent` | Intercepta DPAD_UP/DOWN/LEFT/RIGHT y llama `window.__tvMoveFocus`, siempre `return true` | Causa raiz del problema 2 |
+
+### Causa raiz confirmada
+
+`NativeDpadWebView.dispatchKeyEvent` consumia todas las flechas D-pad con `return true` **sin verificar si `window.__tvMoveFocus` habia cargado**. Si el JS inyectado en `onPageFinished` no habia ejecutado `processAll()` todavia (o si el sitio lo bloqueaba), `window.__tvMoveFocus` era `undefined` y el `evaluateJavascript` hacia `undefined && fn` = `undefined` = falsy, pero el evento ya estaba consumido por Compose.
+
+Resultado: el WebView nativo nunca recibia las flechas. El usuario veia la pagina pero no podia mover el foco.
+
+### Fix aplicado
+
+`NativeDpadWebView` ahora usa `jsHandled(script)` con `CountDownLatch` (200ms timeout) para verificar si el JS realmente proceso el evento antes de consumirlo. Si `window.__tvMoveFocus` no existe o retorna false, el evento pasa a `super.dispatchKeyEvent(event)` que lo envia al WebView nativo.
+
+Archivos modificados:
+- `app/src/main/java/com/tvanime/app/ui/screens/WebViewBrowserScreen.kt`: `NativeDpadWebView` reescrito con `jsHandled` fallback.
+
+### Limpieza de caches
+
+- `app/build/` eliminado antes de recompilar para descartar caches KSP/Java obsoletos.
+- Build verde despues de clean.
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `Remove-Item -Recurse -Force app\build` | OK |
+| `gradlew.bat :app:assembleDebug --no-daemon --console=plain` | `BUILD SUCCESSFUL in 1m 41s` |
+| APK | `app\build\outputs\apk\debug\app-debug.apk` (`14.535.612` bytes, `2026-06-24 ~21:30`) |
+
+### Resumen de commits del dia (ordenados)
+
+| Hora aprox | Commit | Descripcion |
+|---|---|---|
+| temprano | `1a9510d` | AGP 8.5.2 + Gradle 8.7 + KSP 1.0.18 (JDK 21) |
+| temprano | `f8114ba` | docs toolchain upgrade |
+| mediodia | `fe17379` | Foco D-pad visible + WebView navega + google.com |
+| mediodia | `f8053ac` | WebView recibe D-pad nativo + tabindex automatico |
+| mediodia | `45b49ec` | DOM walker virtual + barra de busqueda |
+| tarde | `24566e5` | Refactor estilo WebCast |
+| tarde | `c282602` | Bitacora sesion |
+| tarde | `12b1df6` | WebView native focus sin crash |
+| tarde | `0ce6e88` | Route explorer mode |
+| tarde | `cd07831` | Launch directly into WebView explorer |
+| tarde | `3eed063` | WebView explorer unica shell |
+| noche | (este commit) | Fix jsHandled fallback + bitacora final |
+
+### Pendiente
+
+| Pendiente | Riesgo | Accion requerida |
+|---|---|---|
+| Probar APK nueva en TV real | Alto | Instalar con `adb install -r` y validar D-pad en Gnula |
+| Validar que `window.__tvMoveFocus`oste funciona en sitios populares (Gnula, Archive) | Medio | Si no funciona, el evento cae al WebView nativo lo cual sigue siendo util |
+| Verificar que la deteccion de videos sigue funcionando | Medio | Navegar a test-streams.mux.dev y verificar que el overlay aparece |
+| Si el JS se bloquea por CSP en algunos sitios, evaluar fallback solo-nativo | Bajo | Hoy el fallback ya esta implementado via `super.dispatchKeyEvent` |
+
+### Leccion final del dia
+
+`evaluateJavascript` en `dispatchKeyEvent` no debe consumir el evento por defecto. Siempre verificar el resultado antes de `return true`. Si el JS no esta listo, el WebView nativo debe recibir el evento como fallback.
