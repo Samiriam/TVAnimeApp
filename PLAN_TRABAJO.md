@@ -1525,3 +1525,47 @@ adb install -r "C:\Users\informatica\AndroidStudioProjects\TVAnimeApp\app\build\
 4. **WebCast es la referencia correcta** para deteccion de videos: `shouldInterceptRequest` + regex + drawer lateral. NO cursor virtual sobre el WebView.
 5. **AGP 8.2 + JDK 21 = bug.** AGP 8.5+ lo resuelve.
 6. **JDK 17 no estaba en el sistema.** Mejor alinear el proyecto al JDK 21 que ya esta, no instalar otro.
+
+---
+
+## Sesion 2026-06-24 20:03 — Regresion: la app se cierra al abrir navegador
+
+### Problema reportado
+
+Despues de la ultima actualizacion del programador, al abrir el navegador integrado la app vuelve a cerrarse.
+
+### Causa raiz inferida en codigo
+
+El commit `f8053ac` quito `.focusRequester(webViewFocusRequester)` y `.focusable(...)` del `AndroidView` para que el D-pad llegara al WebView nativo. Esa decision era correcta para la navegacion, pero quedaron llamadas vivas a `webViewFocusRequester.requestFocus()` en `WebViewBrowserScreen`.
+
+Como el `FocusRequester` ya no estaba asociado a ningun nodo Compose, al abrir la pantalla o recuperar foco desde barra/drawers podia lanzar una excepcion de Compose y cerrar la app. Esto explica que el bug volviera justo despues del fix de D-pad nativo.
+
+### Correccion aplicada
+
+| Archivo | Cambio |
+|---|---|
+| `WebViewBrowserScreen.kt` | Eliminado `webViewFocusRequester` para el WebView. Las recuperaciones de foco ahora llaman foco nativo sobre `NativeDpadWebView` con `requestFocus()` y `requestFocus(View.FOCUS_DOWN)`. |
+| `WebViewBrowserScreen.kt` | `AndroidWebView` ya no recibe `FocusRequester`; el borde de foco usa `setOnFocusChangeListener` del WebView nativo. |
+| `WebViewBrowserScreen.kt` | Eliminado `CountDownLatch` en `dispatchKeyEvent`; `ENTER/OK` ejecuta `evaluateJavascript` de forma asincronica para no bloquear el hilo UI. |
+| `WebViewBrowserScreen.kt` | El modo WebView ahora colapsa los drawers laterales y arranca sin drawer de videos abierto por defecto, para dar mas foco y espacio a la navegacion dentro de la pagina. |
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `rg -n "webViewFocusRequester|focusRequester = webViewFocusRequester|CountDownLatch|evaluateJavascriptWithResult"` | Sin referencias peligrosas; solo queda el `FocusRequester` legitimo de `SearchBar`. |
+| `./gradlew.bat :app:assembleDebug --no-daemon --console=plain` con `JAVA_HOME=C:\Users\informatica\.jdks\ms-21.0.9` | Build exitoso. |
+
+APK generado:
+
+```
+C:\Users\informatica\AndroidStudioProjects\TVAnimeApp\app\build\outputs\apk\debug\app-debug.apk
+Tamano: 14555235 bytes
+Timestamp: 2026-06-24 20:03:20
+```
+
+### Estado
+
+Mitigado por codigo y compilacion. Pendiente de retest en TV/Google TV: abrir Home -> Captura Web -> confirmar que ya no se cierra al entrar al navegador y luego validar D-pad sobre tarjetas dentro del WebView.
+
+Nota de UX: la pantalla mantiene dos modos claros. La interfaz propia de la app se usa desde header, barra de busqueda y drawers; cuando la accion vuelve al WebView, los drawers se cierran y el foco se devuelve al WebView nativo para priorizar la navegacion interna de la pagina.

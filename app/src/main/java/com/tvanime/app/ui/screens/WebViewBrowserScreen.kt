@@ -77,14 +77,13 @@ fun WebViewBrowserScreen(
     var urlInput by remember(startingUrl) { mutableStateOf(startingUrl) }
     var webPermissionMessage by remember { mutableStateOf<String?>(null) }
     val webViewHolder = remember { WebViewHolder() }
-    val webViewFocusRequester = remember { FocusRequester() }
     val searchBarFocusRequester = remember { FocusRequester() }
     var isSearchBarFocused by remember { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE) }
 
     var bookmarks by remember { mutableStateOf(loadBookmarks(prefs)) }
     var videosFound by remember { mutableStateOf(listOf<DetectedVideo>()) }
-    var showVideoDrawer by remember { mutableStateOf(prefs.getBoolean(KEY_DRAWER_VIDEOS, true)) }
+    var showVideoDrawer by remember { mutableStateOf(prefs.getBoolean(KEY_DRAWER_VIDEOS, false)) }
     var showBookmarkDrawer by remember { mutableStateOf(prefs.getBoolean(KEY_DRAWER_BOOKMARKS, false)) }
 
     DisposableEffect(Unit) {
@@ -103,12 +102,6 @@ fun WebViewBrowserScreen(
         viewModel.setDefaultUrl(startingUrl)
     }
 
-    LaunchedEffect(webViewHolder.webView) {
-        if (webViewHolder.webView != null) {
-            webViewFocusRequester.requestFocus()
-        }
-    }
-
     fun persistDrawers() {
         prefs.edit().apply {
             putBoolean(KEY_DRAWER_VIDEOS, showVideoDrawer)
@@ -117,9 +110,31 @@ fun WebViewBrowserScreen(
         }
     }
 
+    fun requestWebViewFocus(collapseChrome: Boolean = true) {
+        if (collapseChrome && (showVideoDrawer || showBookmarkDrawer)) {
+            showVideoDrawer = false
+            showBookmarkDrawer = false
+            prefs.edit().apply {
+                putBoolean(KEY_DRAWER_VIDEOS, false)
+                putBoolean(KEY_DRAWER_BOOKMARKS, false)
+                apply()
+            }
+        }
+        webViewHolder.webView?.post {
+            webViewHolder.webView?.apply {
+                requestFocus()
+                requestFocus(View.FOCUS_DOWN)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        requestWebViewFocus(collapseChrome = true)
+    }
+
     BackHandler {
         when {
-            isSearchBarFocused -> webViewFocusRequester.requestFocus()
+            isSearchBarFocused -> requestWebViewFocus()
             showVideoDrawer -> { showVideoDrawer = false; persistDrawers() }
             showBookmarkDrawer -> { showBookmarkDrawer = false; persistDrawers() }
             webViewHolder.webView?.canGoBack() == true -> webViewHolder.webView?.goBack()
@@ -138,7 +153,7 @@ fun WebViewBrowserScreen(
                     viewModel.addToHistory(url)
                     showBookmarkDrawer = false
                     persistDrawers()
-                    webViewFocusRequester.requestFocus()
+                    requestWebViewFocus()
                 },
                 onDelete = { url ->
                     bookmarks = bookmarks.filterNot { it == url }
@@ -147,7 +162,7 @@ fun WebViewBrowserScreen(
                 onClose = {
                     showBookmarkDrawer = false
                     persistDrawers()
-                    webViewFocusRequester.requestFocus()
+                    requestWebViewFocus()
                 },
                 onPlayVideo = { url ->
                     val headers = mapOf("Referer" to currentUrl)
@@ -163,7 +178,7 @@ fun WebViewBrowserScreen(
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     if (event.key == androidx.compose.ui.input.key.Key.Back && isSearchBarFocused) {
-                        webViewFocusRequester.requestFocus()
+                        requestWebViewFocus()
                         true
                     } else false
                 }
@@ -206,7 +221,7 @@ fun WebViewBrowserScreen(
                     viewModel.setDefaultUrl(target)
                     viewModel.addToHistory(target)
                     videosFound = emptyList()
-                    webViewFocusRequester.requestFocus()
+                    requestWebViewFocus()
                 },
                 focusRequester = searchBarFocusRequester,
                 onFocusChange = { isSearchBarFocused = it },
@@ -224,7 +239,6 @@ fun WebViewBrowserScreen(
                 AndroidWebView(
                     holder = webViewHolder,
                     url = currentUrl,
-                    focusRequester = webViewFocusRequester,
                     canGrantWebPermissions = context.hasWebRuntimePermissions(),
                     onUrlChanged = {
                         currentUrl = it
@@ -293,7 +307,7 @@ fun WebViewBrowserScreen(
                 onClose = {
                     showVideoDrawer = false
                     persistDrawers()
-                    webViewFocusRequester.requestFocus()
+                    requestWebViewFocus()
                 }
             )
         }
@@ -616,7 +630,6 @@ data class DetectedVideo(val url: String, val format: String, val referer: Strin
 private fun AndroidWebView(
     holder: WebViewHolder,
     url: String,
-    focusRequester: FocusRequester,
     canGrantWebPermissions: Boolean,
     onUrlChanged: (String) -> Unit,
     onVideoDetected: (String, String) -> Unit,
@@ -625,8 +638,7 @@ private fun AndroidWebView(
     onPermissionRequest: (String) -> Unit
 ) {
     var webViewError by remember { mutableStateOf<String?>(null) }
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
+    var focused by remember { mutableStateOf(false) }
 
     AndroidView(
         modifier = Modifier
@@ -656,6 +668,7 @@ private fun AndroidWebView(
                     android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     isFocusable = true
                     isFocusableInTouchMode = false
+                    setOnFocusChangeListener { _, hasFocus -> focused = hasFocus }
 
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
@@ -736,6 +749,10 @@ private fun AndroidWebView(
                             }
                         }
                     }
+                    post {
+                        requestFocus()
+                        requestFocus(View.FOCUS_DOWN)
+                    }
                 }
             }
         },
@@ -761,30 +778,14 @@ private class NativeDpadWebView(context: android.content.Context) : WebView(cont
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                val handled = evaluateJavascriptWithResult(
-                    "(function(){var a=document.activeElement;if(!a||a===document.body){return false;}if(a.tagName==='VIDEO'){a.play();return true;}if(a.tagName==='A'&&a.href){window.location.href=a.href;return true;}if(a.click){a.click();return true;}return false;})()"
+                evaluateJavascript(
+                    "(function(){var a=document.activeElement;if(!a||a===document.body){return false;}if(a.tagName==='VIDEO'){a.play();return true;}if(a.tagName==='A'&&a.href){window.location.href=a.href;return true;}if(a.click){a.click();return true;}return false;})()",
+                    null
                 )
-                if (handled == "true") return true
+                return true
             }
         }
         return super.dispatchKeyEvent(event)
-    }
-
-    private fun evaluateJavascriptWithResult(script: String): String? {
-        var result: String? = null
-        val latch = java.util.concurrent.CountDownLatch(1)
-        post {
-            evaluateJavascript(script) { value ->
-                result = value
-                latch.countDown()
-            }
-        }
-        return try {
-            latch.await(150, java.util.concurrent.TimeUnit.MILLISECONDS)
-            result
-        } catch (e: InterruptedException) {
-            null
-        }
     }
 }
 
