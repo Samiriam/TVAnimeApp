@@ -1788,3 +1788,46 @@ Archivos modificados:
 ### Leccion final del dia
 
 `evaluateJavascript` en `dispatchKeyEvent` no debe consumir el evento por defecto. Siempre verificar el resultado antes de `return true`. Si el JS no esta listo, el WebView nativo debe recibir el evento como fallback.
+
+---
+
+## Depuracion final 2026-06-24 — Teclado, back y navegacion historial
+
+### Problemas reportados por el usuario
+
+1. "No te deja entrar informacion en la barra de busqueda de google"
+2. "Los botones de retroceder no funcionan"
+3. "No puedes volver a paginas anteriores al menos que lo otra url o texto te lleve a ellos"
+
+### Causa raiz
+
+| # | Sintoma | Causa en codigo |
+|---|---|---|
+| 1 | No puedes escribir en `<input>` del WebView | `isFocusableInTouchMode = false` bloqueaba el teclado virtual. El WebView no podia activar el IME al hacer click en un campo HTML. |
+| 2 y 3 | Boton back no navega historial | `BackHandler` de Compose consumia `KEYCODE_BACK` antes de que llegue al WebView. El WebView nunca recibia el back y no podia hacer `goBack()`. |
+
+### Fix aplicado
+
+| Archivo | Cambio |
+|---|---|
+| `WebViewBrowserScreen.kt` | `isFocusableInTouchMode = true` en factory del WebView. Permite que el IME aparezca al click en campos HTML. |
+| `WebViewBrowserScreen.kt` | Quitado `BackHandler` de Compose. Ya no compite con el WebView. |
+| `WebViewBrowserScreen.kt` | `NativeDpadWebView.dispatchKeyEvent` ahora maneja `KEYCODE_BACK`: si `canGoBack()` hace `goBack()`, si no pasa a `super` (Navigation hace pop o sale). |
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `Remove-Item -Recurse -Force app\build` | OK |
+| `gradlew.bat :app:assembleDebug --no-daemon --console=plain` | `BUILD SUCCESSFUL in 1m 32s` |
+| APK | `app\build\outputs\apk\debug\app-debug.apk` (`14.513.507` bytes, `2026-06-24 21:33:13`) |
+| `git push origin main` | OK — `d336a58` |
+
+### Pendiente de prueba en TV
+
+1. Abrir la app (arranca directo en google.com)
+2. Click en la barra de Google → debe aparecer el teclado virtual
+3. Escribir una busqueda y presionar Enter → debe navegar a resultados
+4. Click en un resultado → entra al sitio
+5. Presionar BACK → debe volver a Google
+6. Presionar BACK otra vez → debe salir de la app
