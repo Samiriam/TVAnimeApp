@@ -1614,3 +1614,52 @@ Tamano: 14555915 bytes
 ### Pendiente critico
 
 Instalar esta APK 1.1 en la TV y confirmar visualmente que aparece `Modo actual: Explorador WebView TV | build 1.1` en Home y `Explorador WebView 1.1` en el navegador. Si no aparecen esos textos, la TV sigue ejecutando una APK anterior.
+
+---
+
+## Sesion 2026-06-24 21:10 — Arranque directo en modo explorador
+
+### Decision de producto corregida
+
+El usuario aclaro que no debe existir un boton para entrar al explorador: la app debe abrir automaticamente en modo explorador WebView. La interfaz propia de la app solo debe intervenir cuando haya enlaces capturados y se vaya a reproducir un stream.
+
+### Cambios aplicados
+
+| Archivo | Cambio |
+|---|---|
+| `MainActivity.kt` | Eliminada pantalla inicial de permisos como bloqueo de arranque; la app entra directo al `TVAnimeNavHost`. |
+| `TVAnimeNavHost.kt` | `startDestination` cambiado de `home` a `browser`; el explorador es la pantalla inicial real. |
+| `WebViewBrowserScreen.kt` | Eliminados del flujo visible el header, barra URL, bookmarks y drawers; el WebView ocupa la pantalla. |
+| `WebViewBrowserScreen.kt` | La interfaz de la app aparece como `VideoCaptureOverlay` solo cuando `shouldInterceptRequest` detecta un enlace reproducible. |
+| `app/build.gradle.kts` | Version subida a `versionCode = 3`, `versionName = "1.2"` para distinguir esta APK del intento 1.1. |
+
+### Logica principal preservada
+
+No se elimino la capacidad central de la app. La logica vigente sigue siendo:
+
+1. WebView carga y navega paginas publicas.
+2. `shouldInterceptRequest` inspecciona las requests del WebView.
+3. `isVideoRequest()` detecta HLS/MP4/WEBM/MKV/TS, `/hls/`, `videoplayback`, `format=mp4` y `type=video`.
+4. `WebViewBrowserViewModel.onStreamDetected()` registra el candidato y activa `VideoCaptureOverlay`.
+5. El overlay muestra `Reproducir en TV`.
+6. El reproductor recibe la URL capturada con headers de contexto, al menos `Referer` y los headers que entregue el flujo de captura.
+
+La interfaz propia de la app queda subordinada a ese flujo: solo aparece para reproducir o descartar lo capturado, no para reemplazar la navegacion dentro del WebView.
+
+### Comportamiento esperado
+
+1. Al abrir la app entra directamente a Google dentro del WebView.
+2. El usuario navega dentro del WebView sin pasar por Home ni pulsar boton de explorador.
+3. La interfaz propia de la app aparece solo cuando detecta un video/enlace reproducible.
+4. Al pulsar `Reproducir en TV`, la app cambia al reproductor Media3.
+5. Si una pagina pide permisos WebView, se muestra aviso dentro del explorador sin bloquear el arranque.
+
+### Verificacion
+
+| Comando | Resultado |
+|---|---|
+| `./gradlew.bat :app:assembleDebug --no-daemon --console=plain` con JDK 21 | Build ejecutado sin error. |
+
+### Pendiente
+
+Instalar APK version `1.2` en TV y probar si el cierre al entrar al explorador desaparece, porque ya no hay transicion Home -> explorador: el explorador es el arranque.

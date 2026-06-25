@@ -47,7 +47,7 @@ fun TVAnimeNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = "home"
+        startDestination = "browser"
     ) {
         composable("home") {
             val vm: HomeViewModel = hiltViewModel()
@@ -67,7 +67,7 @@ fun TVAnimeNavHost(
         composable("browser") {
             WebViewBrowserScreen(
                 initialUrl = null,
-                onBack = { navController.popBackStack() },
+                onBack = { },
                 onPlayVideo = { videoUrl, headers ->
                     val headersParam = encodeHeaders(headers).takeIf { it.isNotBlank() }
                         ?.let { "?headers=${Uri.encode(it)}" }
