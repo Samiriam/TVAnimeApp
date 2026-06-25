@@ -338,11 +338,27 @@ private class NativeDpadWebView(context: android.content.Context) : WebView(cont
             return super.dispatchKeyEvent(event)
         }
         when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('up')", null)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('down')", null)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('left')", null)
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                evaluateJavascript("window.__tvMoveFocus && window.__tvMoveFocus('right')", null)
+                return true
+            }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 evaluateJavascript(
-                    "(function(){var a=document.activeElement;if(!a||a===document.body){return false;}if(a.tagName==='VIDEO'){a.play();return true;}if(a.tagName==='A'&&a.href){window.location.href=a.href;return true;}if(a.click){a.click();return true;}return false;})()",
+                    "window.__tvActivateFocus ? window.__tvActivateFocus() : false",
                     null
                 )
                 return true
@@ -397,9 +413,10 @@ private const val TV_FOCUS_INJECT_JS = """
             if (!el || el.nodeType !== 1) return;
             if (el.hasAttribute('tabindex')) {
                 if (el.getAttribute('tabindex') === '-1') el.setAttribute('tabindex', '0');
-                return;
+            } else {
+                el.setAttribute('tabindex', '0');
             }
-            el.setAttribute('tabindex', '0');
+            try { el.style.outlineOffset = '3px'; } catch (e) {}
         }
 
         function processAll() {
@@ -422,6 +439,117 @@ private const val TV_FOCUS_INJECT_JS = """
                 }
             } catch (e) {}
         }
+
+        function isVisible(el) {
+            if (!el || el.nodeType !== 1) return false;
+            var r = el.getBoundingClientRect();
+            if (r.width < 8 || r.height < 8) return false;
+            var s = window.getComputedStyle(el);
+            if (!s || s.visibility === 'hidden' || s.display === 'none' || parseFloat(s.opacity || '1') === 0) return false;
+            return r.bottom >= 0 && r.right >= 0 && r.top <= window.innerHeight && r.left <= window.innerWidth;
+        }
+
+        function candidates() {
+            processAll();
+            var all = Array.prototype.slice.call(document.querySelectorAll(SEL + ',' + CARD_SEL));
+            var seen = [];
+            return all.filter(function(el) {
+                if (seen.indexOf(el) >= 0) return false;
+                seen.push(el);
+                return isVisible(el);
+            });
+        }
+
+        function centerOf(el) {
+            var r = el.getBoundingClientRect();
+            return {x: r.left + r.width / 2, y: r.top + r.height / 2, r: r};
+        }
+
+        function paintFocus(el) {
+            try {
+                if (window.__tvFocusedElement && window.__tvFocusedElement !== el) {
+                    window.__tvFocusedElement.style.outline = window.__tvPrevOutline || '';
+                    window.__tvFocusedElement.style.boxShadow = window.__tvPrevBoxShadow || '';
+                }
+                window.__tvPrevOutline = el.style.outline || '';
+                window.__tvPrevBoxShadow = el.style.boxShadow || '';
+                el.style.outline = '4px solid #00E5FF';
+                el.style.boxShadow = '0 0 0 4px rgba(0,229,255,0.30)';
+                window.__tvFocusedElement = el;
+            } catch (e) {}
+        }
+
+        function focusElement(el) {
+            if (!el) return false;
+            try {
+                el.focus({preventScroll: true});
+            } catch (e) {
+                try { el.focus(); } catch (ignored) {}
+            }
+            try { el.scrollIntoView({block: 'center', inline: 'center', behavior: 'smooth'}); } catch (e) {}
+            paintFocus(el);
+            return true;
+        }
+
+        window.__tvMoveFocus = function(dir) {
+            var items = candidates();
+            if (!items.length) return false;
+            var active = document.activeElement;
+            if (!active || active === document.body || items.indexOf(active) < 0 || !isVisible(active)) {
+                return focusElement(items[0]);
+            }
+            var a = centerOf(active);
+            var best = null;
+            var bestScore = Infinity;
+            for (var i = 0; i < items.length; i++) {
+                var el = items[i];
+                if (el === active) continue;
+                var c = centerOf(el);
+                var dx = c.x - a.x;
+                var dy = c.y - a.y;
+                if (dir === 'up' && dy >= -8) continue;
+                if (dir === 'down' && dy <= 8) continue;
+                if (dir === 'left' && dx >= -8) continue;
+                if (dir === 'right' && dx <= 8) continue;
+                var primary = (dir === 'up' || dir === 'down') ? Math.abs(dy) : Math.abs(dx);
+                var secondary = (dir === 'up' || dir === 'down') ? Math.abs(dx) : Math.abs(dy);
+                var score = primary * 2 + secondary;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = el;
+                }
+            }
+            if (best) return focusElement(best);
+            if (dir === 'up') window.scrollBy(0, -Math.max(240, window.innerHeight * 0.7));
+            if (dir === 'down') window.scrollBy(0, Math.max(240, window.innerHeight * 0.7));
+            if (dir === 'left') window.scrollBy(-Math.max(240, window.innerWidth * 0.7), 0);
+            if (dir === 'right') window.scrollBy(Math.max(240, window.innerWidth * 0.7), 0);
+            return true;
+        };
+
+        window.__tvActivateFocus = function() {
+            var a = document.activeElement;
+            if (!a || a === document.body) {
+                var items = candidates();
+                if (!items.length) return false;
+                a = items[0];
+                focusElement(a);
+            }
+            if (a.tagName === 'VIDEO') {
+                try { if (a.paused) a.play(); else a.pause(); return true; } catch(e) {}
+            }
+            var target = a.closest && a.closest('a[href], button, [role=button], [onclick], article, .card, .movie, .item, .poster, .video, .thumb, .tile');
+            if (target && target !== a) a = target;
+            if (a.tagName === 'A' && a.href) {
+                window.location.href = a.href;
+                return true;
+            }
+            if (a.click) {
+                a.click();
+                return true;
+            }
+            return false;
+        };
 
         processAll();
         if (document.readyState === 'loading') {

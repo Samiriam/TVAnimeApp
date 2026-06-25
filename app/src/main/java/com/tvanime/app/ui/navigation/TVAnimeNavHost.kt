@@ -10,18 +10,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.tvanime.app.ui.screens.HomeScreen
-import com.tvanime.app.ui.screens.DetailScreen
 import com.tvanime.app.ui.screens.WebViewBrowserScreen
 import com.tvanime.app.ui.screens.PlayerScreen
-import com.tvanime.app.ui.screens.SettingsScreen
-import com.tvanime.app.ui.viewmodel.CrawlerViewModel
-import com.tvanime.app.ui.viewmodel.DetailViewModel
-import com.tvanime.app.ui.viewmodel.HomeViewModel
-import com.tvanime.app.ui.viewmodel.SettingsViewModel
 import androidx.activity.compose.BackHandler
-import com.tvanime.app.domain.model.ContentItem
 import org.json.JSONObject
 
 private fun encodeHeaders(headers: Map<String, String>): String {
@@ -49,21 +40,6 @@ fun TVAnimeNavHost(
         navController = navController,
         startDestination = "browser"
     ) {
-        composable("home") {
-            val vm: HomeViewModel = hiltViewModel()
-            val uiState by vm.uiState.collectAsState()
-
-            HomeScreen(
-                catalog = uiState.catalog,
-                permissionsGranted = permissionsGranted,
-                onOpenBrowser = { navController.navigate("browser") },
-                onOpenSettings = { navController.navigate("settings") },
-                onContentSelected = { item: ContentItem ->
-                    navController.navigate("detail/${Uri.encode(item.id)}")
-                }
-            )
-        }
-
         composable("browser") {
             WebViewBrowserScreen(
                 initialUrl = null,
@@ -74,55 +50,6 @@ fun TVAnimeNavHost(
                         .orEmpty()
                     navController.navigate("player/${Uri.encode(videoUrl)}$headersParam")
                 }
-            )
-        }
-
-        composable("settings") {
-            val settingsVm: SettingsViewModel = hiltViewModel()
-            val crawlerVm: CrawlerViewModel = hiltViewModel()
-            val uiState by settingsVm.uiState.collectAsState()
-            val crawlerState by crawlerVm.uiState.collectAsState()
-
-            BackHandler { navController.popBackStack() }
-
-            SettingsScreen(
-                uiState = uiState,
-                crawlerState = crawlerState,
-                onBack = { navController.popBackStack() },
-                onSelectDemo = { settingsVm.selectSource(com.tvanime.app.data.settings.PlaylistSource.DEMO) },
-                onSelectRemoteUrl = { settingsVm.selectSource(com.tvanime.app.data.settings.PlaylistSource.REMOTE_URL) },
-                onRemoteUrlChanged = settingsVm::updateRemoteUrl,
-                onSave = settingsVm::save,
-                onToggleCategory = crawlerVm::toggleCategory
-            )
-        }
-
-        composable(
-            route = "detail/{contentId}",
-            arguments = listOf(navArgument("contentId") { type = NavType.StringType })
-        ) {
-            val vm: DetailViewModel = hiltViewModel()
-            val uiState by vm.uiState.collectAsState()
-
-            BackHandler { navController.popBackStack() }
-
-            DetailScreen(
-                contentItem = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)?.item,
-                isFavorite = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)?.isFavorite ?: false,
-                onPlayClick = {
-                    val videoUrl = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)
-                        ?.item?.videoUrl
-                    if (!videoUrl.isNullOrBlank()) {
-                        navController.navigate("player/${Uri.encode(videoUrl)}")
-                    }
-                },
-                onToggleFavorite = {
-                    val currentFav = (uiState as? com.tvanime.app.ui.viewmodel.DetailUiState.Ready)
-                        ?.isFavorite ?: false
-                    vm.onToggleFavorite(currentFav)
-                },
-                onBack = { navController.popBackStack() },
-                onOpenBrowser = { navController.navigate("browser") }
             )
         }
 

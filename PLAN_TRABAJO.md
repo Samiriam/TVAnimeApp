@@ -1663,3 +1663,52 @@ La interfaz propia de la app queda subordinada a ese flujo: solo aparece para re
 ### Pendiente
 
 Instalar APK version `1.2` en TV y probar si el cierre al entrar al explorador desaparece, porque ya no hay transicion Home -> explorador: el explorador es el arranque.
+
+---
+
+## Sesion 2026-06-24 21:35 — Navegacion D-pad dentro del WebView
+
+### Problema reportado
+
+Aunque el flujo debia abrir directo en explorador, el usuario reporto que seguia viendo la interfaz anterior y que la navegacion dentro del WebView seguia inutilizable.
+
+### Evidencia externa revisada
+
+- Android TV usa D-pad como metodo primario de navegacion; el foco debe moverse de forma predecible entre controles visibles.
+- WebView en TV no garantiza por si solo navegacion espacial entre elementos HTML de sitios externos. Agregar `tabindex` hace elementos enfocables, pero en sitios no TV-friendly puede no bastar.
+- La solucion debe vivir dentro del WebView, no en una interfaz propia superpuesta salvo cuando hay un stream capturado.
+
+### Correccion aplicada
+
+| Archivo | Cambio |
+|---|---|
+| `WebViewBrowserScreen.kt` | `NativeDpadWebView.dispatchKeyEvent` ahora intercepta `DPAD_UP/DOWN/LEFT/RIGHT` y llama funciones JS dentro de la pagina. |
+| `WebViewBrowserScreen.kt` | `TV_FOCUS_INJECT_JS` ahora define `window.__tvMoveFocus(dir)` para encontrar el elemento visible mas cercano en la direccion del D-pad, enfocarlo y hacer scroll hacia el. |
+| `WebViewBrowserScreen.kt` | `window.__tvActivateFocus()` activa el elemento enfocado con OK/Enter: reproduce video, abre anchors o ejecuta click. |
+| `WebViewBrowserScreen.kt` | El foco HTML se marca visualmente con outline cyan dentro del DOM, no con controles Compose. |
+| `app/build.gradle.kts` | Version subida a `versionCode = 4`, `versionName = "1.3"`. |
+
+### Logica principal preservada
+
+Se mantiene el flujo de scraping/captura:
+
+1. WebView navega la pagina.
+2. `shouldInterceptRequest` intercepta requests.
+3. `isVideoRequest()` detecta recursos reproducibles.
+4. `onStreamDetected()` activa `VideoCaptureOverlay`.
+5. `Reproducir en TV` abre `PlayerScreen` con headers de sesion mediante `getPlaybackHeaders()`.
+
+### Pendiente
+
+Instalar APK `1.3` en TV. Si sigue apareciendo la Home con boton `Abrir navegador`, la TV no esta ejecutando la APK 1.3 o hay otra instalacion/build activa.
+
+### Ajuste posterior de arquitectura de navegacion
+
+Cambiar solo `startDestination = "browser"` no era suficiente si Android/Navigation restauraba un backstack previo con `home`. Para eliminar esa posibilidad:
+
+| Archivo | Cambio |
+|---|---|
+| `TVAnimeNavHost.kt` | Se eliminaron las rutas `home`, `settings` y `detail` del grafo activo. El grafo queda limitado a `browser` y `player`. |
+| `app/build.gradle.kts` | Version subida a `versionCode = 5`, `versionName = "1.4"` para distinguir esta correccion. |
+
+Resultado esperado: aunque haya estado previo, la app ya no tiene ruta navegable a la Home con boton `Abrir navegador`. La unica interfaz activa al arranque es el WebView; la app solo toma control al reproducir el enlace capturado.
